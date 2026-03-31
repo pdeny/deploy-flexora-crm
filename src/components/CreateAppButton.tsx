@@ -1,0 +1,136 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { createApp } from '@/lib/actions/workspace'
+
+const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
+const EMOJIS = ['📋', '📊', '🗂️', '📁', '🏷️', '📝', '🔖', '📌', '🗃️', '⚙️', '🔍', '📈', '🎯', '💼', '🧩']
+
+type Props = { workspaceId: string; compact?: boolean }
+
+export default function CreateAppButton({ workspaceId, compact }: Props) {
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [color, setColor] = useState(COLORS[0])
+  const [emoji, setEmoji] = useState('📋')
+  const [error, setError] = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    const formData = new FormData(e.currentTarget)
+    formData.set('workspaceId', workspaceId)
+    formData.set('color', color)
+    formData.set('iconEmoji', emoji)
+    startTransition(async () => {
+      const result = await createApp(formData)
+      if (result?.error) setError(result.error)
+      else handleClose()
+    })
+  }
+
+  function handleClose() {
+    setOpen(false)
+    setError(null)
+    setColor(COLORS[0])
+    setEmoji('📋')
+  }
+
+  return (
+    <>
+      {compact ? (
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)} title="New App">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New App
+        </button>
+      ) : (
+        <button className="btn btn-primary" onClick={() => setOpen(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New App
+        </button>
+      )}
+
+      {open && (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && handleClose()}>
+          <div className="modal">
+            <div className="modal-header">
+              <h2 className="modal-title">Create App</h2>
+              <button className="btn btn-ghost btn-icon" onClick={handleClose} aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {error && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#f87171', fontSize: 13 }}>
+                    <span>⚠</span> {error}
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Icon</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {EMOJIS.map(e => (
+                      <button
+                        key={e} type="button" onClick={() => setEmoji(e)}
+                        style={{
+                          fontSize: 18, width: 36, height: 36, borderRadius: 8, cursor: 'pointer',
+                          background: emoji === e ? 'rgba(99,102,241,0.2)' : 'var(--bg-elevated)',
+                          border: emoji === e ? '2px solid var(--brand-500)' : '1px solid var(--border-subtle)',
+                          transition: 'all 150ms', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >{e}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="app-name">Name <span style={{ color: 'var(--error)' }}>*</span></label>
+                  <input id="app-name" className="form-input" name="name" placeholder="e.g. CRM, Tasks, Projects" required autoFocus />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="app-desc">Description</label>
+                  <input id="app-desc" className="form-input" name="description" placeholder="What does this app track?" />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Color</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {COLORS.map(c => (
+                      <button
+                        key={c} type="button" onClick={() => setColor(c)}
+                        style={{
+                          width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer',
+                          border: color === c ? '3px solid rgba(255,255,255,0.9)' : '2px solid transparent',
+                          boxShadow: color === c ? `0 0 0 2px ${c}` : 'none',
+                          transition: 'all 150ms',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={handleClose}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={isPending}>
+                  {isPending
+                    ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Creating…</>
+                    : 'Create App'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
