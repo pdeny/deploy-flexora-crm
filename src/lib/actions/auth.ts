@@ -60,7 +60,7 @@ export async function register(formData: FormData) {
 
   // Create a default workspace for the user
   const slug = name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
-  const workspace = await prisma.workspace.create({
+  await prisma.workspace.create({
     data: {
       name: `${name}'s Workspace`,
       slug,

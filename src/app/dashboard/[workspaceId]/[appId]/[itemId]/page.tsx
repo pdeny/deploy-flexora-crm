@@ -31,12 +31,47 @@ export default async function ItemPage({
 
   const fields: AppField[] = JSON.parse(item.app.fieldsJson)
 
+  // Fetch relations per relation field
+  const relationFields = fields.filter(f => f.type === 'relation' && f.relatedAppId)
+  const [workspaceMembers, activityLogs, workspaceApps, ...relationResults] = await Promise.all([
+    prisma.user.findMany({
+      where: { workspaceMembers: { some: { workspaceId: item.app.workspaceId } } },
+      select: { id: true, name: true, email: true },
+    }),
+    prisma.activityLog.findMany({
+      where: { itemId: item.id },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    }),
+    prisma.app.findMany({
+      where: { workspaceId: item.app.workspaceId },
+      select: { id: true, name: true, iconEmoji: true },
+    }),
+    ...relationFields.map(f =>
+      prisma.itemRelation.findMany({
+        where: { fieldId: f.id, fromItemId: item.id },
+        include: { toItem: { select: { id: true, title: true } } },
+      })
+    ),
+  ])
+
+  // Build a map: fieldId → linked items
+  const linkedByField: Record<string, { id: string; title: string }[]> = {}
+  relationFields.forEach((f, i) => {
+    linkedByField[f.id] = (relationResults[i] ?? []).map((r: { toItem: { id: string; title: string } }) => r.toItem)
+  })
+
   return (
     <ItemDetail
       item={item}
       fields={fields}
       user={user}
       workspaceId={workspaceId}
+      workspaceMembers={workspaceMembers}
+      activityLogs={activityLogs}
+      workspaceApps={workspaceApps}
+      linkedByField={linkedByField}
     />
   )
 }

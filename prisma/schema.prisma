@@ -26,6 +26,8 @@ model User {
   createdTasks     Task[]            @relation("TaskCreator")
   notifications    Notification[]
   sessions         Session[]
+  activityLogs     ActivityLog[]
+  apiKeys          ApiKey[]
 }
 
 model Session {
@@ -49,6 +51,7 @@ model Workspace {
 
   members     WorkspaceMember[]
   apps        App[]
+  apiKeys     ApiKey[]
 }
 
 model WorkspaceMember {
@@ -73,7 +76,10 @@ model App {
   color       String   @default("#6366f1")
   fieldsJson  String   @default("[]")
   viewType    String   @default("table")
-  createdAt   DateTime @default(now())
+  shareToken     String?  @unique
+  formToken      String?  @unique
+  formFieldsJson String   @default("{}")
+  createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -90,10 +96,25 @@ model Item {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
-  creator     User     @relation("ItemCreator", fields: [creatorId], references: [id])
-  comments    Comment[]
-  tasks       Task[]
+  app              App            @relation(fields: [appId], references: [id], onDelete: Cascade)
+  creator          User           @relation("ItemCreator", fields: [creatorId], references: [id])
+  comments         Comment[]
+  tasks            Task[]
+  activityLogs     ActivityLog[]
+  relationsFrom    ItemRelation[] @relation("RelationFrom")
+  relationsTo      ItemRelation[] @relation("RelationTo")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  action    String
+  metaJson  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Comment {
@@ -137,6 +158,33 @@ model Automation {
   updatedAt   DateTime @updatedAt
 
   app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+}
+
+model ItemRelation {
+  id         String   @id @default(cuid())
+  fieldId    String
+  fromItemId String
+  toItemId   String
+  createdAt  DateTime @default(now())
+
+  fromItem   Item     @relation("RelationFrom", fields: [fromItemId], references: [id], onDelete: Cascade)
+  toItem     Item     @relation("RelationTo",   fields: [toItemId],   references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, fromItemId, toItemId])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  name        String
+  keyHash     String    @unique
+  prefix      String
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Notification {

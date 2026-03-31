@@ -4,12 +4,32 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
 import type { Workspace, User } from '@/generated/prisma'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 export default function Sidebar({ user, workspaces }: { user: User; workspaces: Workspace[] }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const toggle = () => setMobileOpen(o => !o)
+    document.addEventListener('toggle-sidebar', toggle)
+    return () => document.removeEventListener('toggle-sidebar', toggle)
+  }, [])
+
+  // Close sidebar on route change on mobile
+  useEffect(() => {
+    const t = setTimeout(() => setMobileOpen(false), 0)
+    return () => clearTimeout(t)
+  }, [pathname])
 
   return (
-    <aside className="sidebar">
+    <>
+      {mobileOpen && (
+        <div className="sidebar-mobile-backdrop" onClick={() => setMobileOpen(false)} />
+      )}
+    <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <Link href="/dashboard" className="sidebar-logo">
           <div className="sidebar-logo-mark">✦</div>
@@ -29,26 +49,42 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
         {workspaces.length > 0 && (
           <>
             <div className="sidebar-section-label">Workspaces</div>
-            {workspaces.map(ws => (
-              <Link
-                key={ws.id}
-                href={`/dashboard/${ws.id}`}
-                className={`sidebar-link ${pathname.startsWith(`/dashboard/${ws.id}`) ? 'active' : ''}`}
-                style={{ '--ws-color': ws.color } as React.CSSProperties}
-              >
-                <span style={{ fontSize: 15, lineHeight: 1 }}>{ws.iconEmoji}</span>
-                <span className="truncate">{ws.name}</span>
-                {pathname.startsWith(`/dashboard/${ws.id}`) && (
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: ws.color, marginLeft: 'auto', flexShrink: 0 }} />
-                )}
-              </Link>
-            ))}
+            {workspaces.map(ws => {
+              const isActive = pathname.startsWith(`/dashboard/${ws.id}`)
+              return (
+                <div key={ws.id}>
+                  <Link
+                    href={`/dashboard/${ws.id}`}
+                    className={`sidebar-link ${isActive ? 'active' : ''}`}
+                    style={{ '--ws-color': ws.color } as React.CSSProperties}
+                  >
+                    <span style={{ fontSize: 15, lineHeight: 1 }}>{ws.iconEmoji}</span>
+                    <span className="truncate">{ws.name}</span>
+                    {isActive && (
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: ws.color, marginLeft: 'auto', flexShrink: 0 }} />
+                    )}
+                  </Link>
+                  {isActive && (
+                    <Link
+                      href={`/dashboard/${ws.id}/settings`}
+                      className={`sidebar-link sidebar-sub-link ${pathname === `/dashboard/${ws.id}/settings` ? 'active' : ''}`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0.6 }}>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
+                      </svg>
+                      <span style={{ fontSize: 12 }}>Settings</span>
+                    </Link>
+                  )}
+                </div>
+              )
+            })}
           </>
         )}
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-user">
+        <div className="sidebar-user" onClick={() => router.push('/dashboard/profile')} style={{ cursor: 'pointer' }} title="Profile & Settings">
           <div className="sidebar-avatar">
             {(user.name ?? user.email)[0].toUpperCase()}
           </div>
@@ -133,7 +169,12 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
           color: var(--text-primary);
           background: var(--bg-overlay);
         }
+        .sidebar-sub-link {
+          padding-left: 28px !important;
+          font-size: 12px !important;
+        }
       `}</style>
     </aside>
+    </>
   )
 }

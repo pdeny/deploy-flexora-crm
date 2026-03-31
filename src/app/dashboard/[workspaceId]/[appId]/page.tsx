@@ -3,28 +3,45 @@ import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import ItemsTable from '@/components/ItemsTable'
+import KanbanBoard from '@/components/KanbanBoard'
+import GalleryView from '@/components/GalleryView'
+import CalendarView from '@/components/CalendarView'
+import TimelineView from '@/components/TimelineView'
 import type { AppField } from '@/lib/types'
+import type { FilterRule } from '@/lib/filters'
+import { applyFilters, applySort } from '@/lib/filters'
 
 export default async function AppPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string; appId: string }>
+  searchParams: Promise<{ view?: string; filters?: string; sortField?: string; sortDir?: string }>
+
 }) {
   let user
   try { user = await requireUser() } catch { redirect('/login') }
 
   const { workspaceId, appId } = await params
+  const sp = await searchParams
 
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: {
-      workspace: { include: { members: true } },
-      items: {
-        include: { creator: true, _count: { select: { comments: true, tasks: true } } },
-        orderBy: { createdAt: 'desc' },
+  const [app, workspaceApps] = await Promise.all([
+    prisma.app.findUnique({
+      where: { id: appId },
+      include: {
+        workspace: { include: { members: true } },
+        items: {
+          include: { creator: true, _count: { select: { comments: true, tasks: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
       },
-    },
-  })
+    }),
+    prisma.app.findMany({
+      where: { workspaceId },
+      select: { id: true, name: true, iconEmoji: true },
+      orderBy: { name: 'asc' },
+    }),
+  ])
   if (!app || app.workspaceId !== workspaceId) notFound()
 
   const isMember = app.workspace.members.some(m => m.userId === user.id)
@@ -32,11 +49,50 @@ export default async function AppPage({
 
   const fields: AppField[] = JSON.parse(app.fieldsJson)
 
+  // Parse filters from URL
+  let filterRules: FilterRule[] = []
+  try {
+    if (sp.filters) filterRules = JSON.parse(decodeURIComponent(sp.filters))
+  } catch { /* ignore malformed */ }
+
+  // Apply filters and sort
+  const sortField = sp.sortField ?? ''
+  const sortDir = (sp.sortDir === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
+
+  let items = app.items as typeof app.items
+  items = applyFilters(items, filterRules, fields) as typeof app.items
+  if (sortField === '__updatedAt__') {
+    items = [...items].sort((a, b) =>
+      sortDir === 'asc'
+        ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+        : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    ) as typeof app.items
+  } else {
+    items = applySort(items, sortField || undefined, sortDir, fields) as typeof app.items
+  }
+
+  const view = (['kanban', 'gallery', 'calendar', 'timeline'].includes(sp.view ?? '') ? sp.view : 'table') as 'table' | 'kanban' | 'gallery' | 'calendar' | 'timeline'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <AppHeader app={app} workspaceId={workspaceId} fields={fields} userId={user.id} />
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <ItemsTable app={app} items={app.items} fields={fields} workspaceId={workspaceId} userId={user.id} />
+      <AppHeader
+        app={app}
+        workspaceId={workspaceId}
+        fields={fields}
+        userId={user.id}
+        currentView={view}
+        filterRules={filterRules}
+        sortField={sortField}
+        sortDir={sortDir}
+        items={items}
+        workspaceApps={workspaceApps}
+      />
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {view === 'table' && <ItemsTable app={app} items={items} fields={fields} workspaceId={workspaceId} userId={user.id} />}
+        {view === 'kanban' && <KanbanBoard app={app} items={items} fields={fields} workspaceId={workspaceId} />}
+        {view === 'gallery' && <GalleryView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
+        {view === 'calendar' && <CalendarView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
+        {view === 'timeline' && <TimelineView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
       </div>
     </div>
   )

@@ -89,6 +89,40 @@
   --gradient-surface: linear-gradient(180deg, rgba(99,102,241,0.04) 0%, transparent 60%);
 }
 
+/* ── Light theme overrides ─────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-base:    #f0f2f7;
+  --bg-surface: #ffffff;
+  --bg-elevated:#f5f6fa;
+  --bg-overlay: #eaecf4;
+  --bg-hover:   #e3e6f0;
+
+  --border-subtle:  rgba(60,60,120,0.07);
+  --border-default: rgba(60,60,120,0.13);
+  --border-strong:  rgba(60,60,120,0.22);
+
+  --text-primary:   rgba(10,10,30,0.92);
+  --text-secondary: rgba(10,10,30,0.56);
+  --text-tertiary:  rgba(10,10,30,0.32);
+  --text-disabled:  rgba(10,10,30,0.18);
+
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.05);
+  --shadow-lg:  0 12px 48px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-xl:  0 24px 72px rgba(0,0,0,0.14), 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-glow: 0 0 40px rgba(99,102,241,0.15);
+  --shadow-glow-sm: 0 0 16px rgba(99,102,241,0.10);
+
+  --glass-bg:     rgba(255,255,255,0.82);
+  --glass-border: rgba(0,0,0,0.07);
+
+  --gradient-surface: linear-gradient(180deg, rgba(99,102,241,0.02) 0%, transparent 60%);
+
+  /* Adjusted brand for light bg */
+  --brand-300: #6366f1;
+  --brand-400: #4f46e5;
+}
+
 html, body {
   height: 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -848,3 +882,96 @@ html, body {
 .text-muted { color: var(--text-secondary); }
 .text-error { color: var(--error); }
 .truncate   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* =====================================================
+   RESPONSIVE — mobile-first breakpoints
+   ===================================================== */
+
+@media (max-width: 768px) {
+  /* Sidebar becomes an off-canvas overlay */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--transition-normal);
+    z-index: 300;
+    box-shadow: none;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Backdrop behind open sidebar */
+  .sidebar-mobile-backdrop {
+    display: block;
+  }
+
+  /* Main content spans full width */
+  .main-content {
+    margin-left: 0;
+  }
+
+  /* Reduce page padding */
+  .page-body {
+    padding: 20px 18px;
+  }
+
+  /* Stack page header vertically */
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Full-width grids collapse */
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .grid-auto {
+    grid-template-columns: 1fr;
+  }
+
+  /* Topbar hamburger visible */
+  .topbar-hamburger {
+    display: flex;
+  }
+
+  /* Modals use more screen space */
+  .modal-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+  .modal {
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
+/* Backdrop element — hidden on desktop */
+.sidebar-mobile-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(2px);
+  z-index: 299;
+  animation: fadeIn 150ms ease;
+}
+
+/* Hamburger — hidden on desktop */
+.topbar-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+}
+.topbar-hamburger:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateItem, addComment, createTask, updateTaskStatus } from '@/lib/actions/workspace'
 import type { AppField } from '@/lib/types'
+import { formatRelative } from '@/lib/utils'
+import { evalFormula, formatFormulaResult } from '@/lib/formula'
+import RelationField from '@/components/RelationField'
 
 type CommentType = {
   id: string
@@ -17,6 +20,7 @@ type TaskType = {
   status: string
   priority: string
   dueDate: Date | null
+  createdAt: Date
   creator: { name: string | null; email: string }
   assignee: { name: string | null; email: string } | null
 }
@@ -33,12 +37,24 @@ type ItemType = {
   tasks: TaskType[]
 }
 type UserType = { id: string; name: string | null; email: string }
+type MemberType = { id: string; name: string | null; email: string }
+type ActivityLogType = {
+  id: string
+  action: string
+  metaJson: string
+  createdAt: Date
+  user: { name: string | null; email: string }
+}
 
 type Props = {
   item: ItemType
+  workspaceApps?: { id: string; name: string; iconEmoji: string }[]
+  linkedByField?: Record<string, { id: string; title: string }[]>
   fields: AppField[]
   user: UserType
   workspaceId: string
+  workspaceMembers?: MemberType[]
+  activityLogs?: ActivityLogType[]
 }
 
 function FieldEditor({
@@ -88,6 +104,63 @@ function FieldEditor({
       </div>
     )
   }
+  if (field.type === 'multiselect' && field.options) {
+    const cur: string[] = Array.isArray(value) ? value as string[] : []
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {field.options.map(o => {
+          const active = cur.includes(o.id)
+          return (
+            <button key={o.id} type="button" onClick={() => {
+              const next = active ? cur.filter(x => x !== o.id) : [...cur, o.id]
+              onChange(next)
+            }} style={{
+              padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 600,
+              border: `1.5px solid ${o.color}${active ? '99' : '33'}`,
+              background: active ? o.color + '22' : 'transparent',
+              color: active ? o.color : 'var(--text-disabled)', cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}>{o.label}</button>
+          )
+        })}
+      </div>
+    )
+  }
+  if (field.type === 'rating') {
+    const cur = Number(value ?? 0)
+    return (
+      <div style={{ display: 'flex', gap: 4 }}>
+        {[1,2,3,4,5].map(n => (
+          <button key={n} type="button" onClick={() => onChange(n === cur ? 0 : n)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: n <= cur ? '#f59e0b' : 'var(--text-disabled)', padding: '0 2px', transition: 'color 100ms' }}>★</button>
+        ))}
+      </div>
+    )
+  }
+  if (field.type === 'progress') {
+    const cur = Number(value ?? 0)
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <input type="range" min={0} max={100} value={cur}
+          onChange={e => onChange(+e.target.value)}
+          style={{ flex: 1, accentColor: 'var(--brand-500)' }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', minWidth: 36 }}>{cur}%</span>
+      </div>
+    )
+  }
+  if (field.type === 'image') {
+    const url = String(value ?? '')
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-subtle)' }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        )}
+        <input type="url" className="form-input" value={url} onChange={e => onChange(e.target.value)} placeholder="https://example.com/image.jpg" />
+      </div>
+    )
+  }
   const typeMap: Record<string, string> = {
     date: 'date', number: 'number', email: 'email', url: 'url', phone: 'tel',
   }
@@ -99,6 +172,67 @@ function FieldEditor({
       onChange={e => onChange(e.target.value)}
     />
   )
+}
+
+type ActivityEvent =
+  | { kind: 'created'; date: Date; user: { name: string | null; email: string } }
+  | { kind: 'comment'; date: Date; comment: CommentType }
+  | { kind: 'task'; date: Date; task: TaskType }
+  | { kind: 'log'; date: Date; log: ActivityLogType }
+
+function buildTimeline(item: ItemType, activityLogs: ActivityLogType[] = []): ActivityEvent[] {
+  const events: ActivityEvent[] = [
+    { kind: 'created', date: new Date(item.createdAt), user: item.creator },
+    ...item.comments.map(c => ({ kind: 'comment' as const, date: new Date(c.createdAt), comment: c })),
+    ...item.tasks.map(t => ({ kind: 'task' as const, date: new Date(t.createdAt), task: t })),
+    ...activityLogs.map(l => ({ kind: 'log' as const, date: new Date(l.createdAt), log: l })),
+  ]
+  return events.sort((a, b) => a.date.getTime() - b.date.getTime())
+}
+
+function renderInline(text: string, baseKey: string): React.ReactNode[] {
+  // Tokenize: **bold**, *italic*, `code`, @mention
+  const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|@[\w.-]+)/g)
+  return tokens.map((tok, i) => {
+    const key = `${baseKey}-${i}`
+    if (tok.startsWith('**') && tok.endsWith('**'))
+      return <strong key={key} style={{ color: 'var(--text-primary)' }}>{tok.slice(2, -2)}</strong>
+    if (tok.startsWith('*') && tok.endsWith('*'))
+      return <em key={key}>{tok.slice(1, -1)}</em>
+    if (tok.startsWith('`') && tok.endsWith('`'))
+      return <code key={key} style={{ background: 'var(--bg-overlay)', padding: '1px 5px', borderRadius: 4, fontSize: '0.9em', fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>{tok.slice(1, -1)}</code>
+    if (tok.startsWith('@'))
+      return <span key={key} style={{ color: 'var(--brand-400)', fontWeight: 600 }}>{tok}</span>
+    return tok
+  })
+}
+
+function renderWithMentions(text: string): React.ReactNode {
+  const lines = text.split('\n')
+  const elements: React.ReactNode[] = []
+  let listItems: React.ReactNode[] = []
+
+  function flushList() {
+    if (listItems.length > 0) {
+      elements.push(<ul key={`ul-${elements.length}`} style={{ paddingLeft: 18, margin: '4px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>{listItems}</ul>)
+      listItems = []
+    }
+  }
+
+  lines.forEach((line, li) => {
+    if (line.startsWith('- ') || line.startsWith('• ')) {
+      listItems.push(<li key={li} style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{renderInline(line.slice(2), `li-${li}`)}</li>)
+    } else {
+      flushList()
+      if (line === '') {
+        elements.push(<br key={`br-${li}`} />)
+      } else {
+        elements.push(<span key={`ln-${li}`} style={{ display: 'block' }}>{renderInline(line, `line-${li}`)}</span>)
+      }
+    }
+  })
+  flushList()
+  return <>{elements}</>
 }
 
 function TaskRow({ task }: { task: TaskType }) {
@@ -148,17 +282,7 @@ function TaskRow({ task }: { task: TaskType }) {
   )
 }
 
-function formatRelative(date: Date | string): string {
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
-
-export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
+export default function ItemDetail({ item, fields, user, workspaceMembers = [], activityLogs = [], workspaceApps = [], linkedByField = {} }: Props) {
   const router = useRouter()
   const [title, setTitle]   = useState(item.title)
   const [data, setData]     = useState<Record<string, unknown>>(() => {
@@ -169,9 +293,71 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
 
   const [commentText, setCommentText] = useState('')
   const [isCommenting, startComment]  = useTransition()
+  const commentRef = useRef<HTMLTextAreaElement>(null)
+
+  // @mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null) // null = closed
+  const [mentionAnchor, setMentionAnchor] = useState(0) // index of @ char in commentText
+  const [mentionIdx, setMentionIdx] = useState(0)
+
+  const filteredMembers = mentionQuery !== null
+    ? workspaceMembers.filter(m => {
+        const q = mentionQuery.toLowerCase()
+        return (m.name ?? m.email).toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+      }).slice(0, 6)
+    : []
+
+  function handleCommentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setCommentText(val)
+    const cursor = e.target.selectionStart ?? val.length
+    // Find the @ before the cursor
+    const before = val.slice(0, cursor)
+    const match = before.match(/@([\w.]*)$/)
+    if (match) {
+      setMentionQuery(match[1])
+      setMentionAnchor(cursor - match[0].length)
+      setMentionIdx(0)
+    } else {
+      setMentionQuery(null)
+    }
+  }
+
+  function insertMention(member: MemberType) {
+    const slug = (member.name ?? member.email).toLowerCase().replace(/\s+/g, '.')
+    const before = commentText.slice(0, mentionAnchor)
+    const after = commentText.slice(mentionAnchor + 1 + (mentionQuery?.length ?? 0))
+    const newText = `${before}@${slug} ${after}`
+    setCommentText(newText)
+    setMentionQuery(null)
+    setTimeout(() => {
+      const pos = before.length + slug.length + 2
+      commentRef.current?.setSelectionRange(pos, pos)
+      commentRef.current?.focus()
+    }, 0)
+  }
+
+  function handleCommentKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionQuery !== null && filteredMembers.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx(i => Math.min(i + 1, filteredMembers.length - 1)); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIdx(i => Math.max(i - 1, 0)); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filteredMembers[mentionIdx]); return }
+      if (e.key === 'Escape') { e.preventDefault(); setMentionQuery(null); return }
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      if (commentText.trim()) submitComment(e as unknown as React.FormEvent)
+    }
+  }
+
+  // Description stored in dataJson under __description__
+  const [descEdit, setDescEdit] = useState(false)
+  const description = (data['__description__'] as string) ?? ''
 
   const [taskTitle, setTaskTitle] = useState('')
   const [isAddingTask, startTask] = useTransition()
+
+  const [sidebarTab, setSidebarTab] = useState<'tasks' | 'activity'>('tasks')
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value)
@@ -255,6 +441,42 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
             placeholder="Item title"
           />
 
+          {/* Description */}
+          {descEdit ? (
+            <textarea
+              autoFocus
+              className="form-input form-textarea"
+              value={description}
+              onChange={e => { setData(d => ({ ...d, __description__: e.target.value })); setDirty(true) }}
+              onBlur={() => setDescEdit(false)}
+              placeholder="Add a description… (supports **bold**, *italic*, `code`, - lists)"
+              rows={5}
+              style={{ fontSize: 13, minHeight: 90, marginBottom: 16, lineHeight: 1.6, resize: 'vertical' }}
+            />
+          ) : (
+            <div
+              onClick={() => setDescEdit(true)}
+              style={{
+                marginBottom: 16, minHeight: 36, cursor: 'text',
+                padding: '8px 10px', borderRadius: 8,
+                border: '1px solid transparent',
+                transition: 'all var(--transition-fast)',
+              }}
+              className="desc-placeholder-area"
+              title="Click to add description"
+            >
+              {description ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  {renderWithMentions(description)}
+                </div>
+              ) : (
+                <span style={{ fontSize: 13, color: 'var(--text-disabled)', fontStyle: 'italic' }}>
+                  Add a description…
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Meta info */}
           <div className="item-meta-row">
             <div className="item-meta-chip">
@@ -278,9 +500,51 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
               <div className="item-fields-list">
                 {fields.map(f => (
                   <div key={f.id} className="item-field-row">
-                    <label className="item-field-name">{f.name}</label>
+                    <label className="item-field-name">
+                      {f.name}
+                      {f.required && <span style={{ color: 'var(--error)', marginLeft: 3 }}>*</span>}
+                      {f.type === 'calculation' && (
+                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>formula</span>
+                      )}
+                    </label>
                     <div className="item-field-value">
-                      <FieldEditor field={f} value={data[f.id]} onChange={v => handleFieldChange(f.id, v)} />
+                      {f.type === 'relation' ? (() => {
+                        const relatedApp = workspaceApps.find(a => a.id === f.relatedAppId)
+                        if (!f.relatedAppId || !relatedApp) {
+                          return <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>No linked app configured</span>
+                        }
+                        return (
+                          <RelationField
+                            fieldId={f.id}
+                            fromItemId={item.id}
+                            relatedAppId={f.relatedAppId}
+                            relatedAppName={`${relatedApp.iconEmoji} ${relatedApp.name}`}
+                            initialLinked={linkedByField[f.id] ?? []}
+                          />
+                        )
+                      })() : f.type === 'calculation' ? (() => {
+                        const { result, error } = evalFormula(f.calcFormula ?? '', fields, data)
+                        return (
+                          <span style={{
+                            fontSize: 14, fontFamily: 'monospace', fontWeight: 600,
+                            color: error ? 'var(--error)' : 'var(--text-primary)',
+                            padding: '6px 10px',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 6,
+                            display: 'inline-block',
+                          }} title={error ?? f.calcFormula}>
+                            {error ? `⚠ ${error}` : formatFormulaResult(result)}
+                          </span>
+                        )
+                      })() : (
+                        <FieldEditor field={f} value={data[f.id]} onChange={v => handleFieldChange(f.id, v)} />
+                      )}
+                      {f.description && (
+                        <div style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 4, lineHeight: 1.4 }}>
+                          {f.description}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -297,91 +561,181 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
 
         {/* ── Sidebar ── */}
         <div className="item-detail-sidebar">
-          {/* Tasks */}
-          <div className="item-sidebar-block">
-            <div className="item-section-label">
+          {/* Tab switcher */}
+          <div className="sidebar-tabs">
+            <button
+              className={`sidebar-tab ${sidebarTab === 'tasks' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('tasks')}
+            >
               Tasks
-              <span className="item-count-badge">{item.tasks.length}</span>
-            </div>
-            <form onSubmit={submitTask} className="item-quick-add">
-              <input
-                className="form-input"
-                value={taskTitle}
-                onChange={e => setTaskTitle(e.target.value)}
-                placeholder="Add a task…"
-                style={{ flex: 1, fontSize: 13 }}
-              />
-              <button type="submit" className="btn btn-secondary btn-sm btn-icon" disabled={isAddingTask || !taskTitle.trim()} title="Add task">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-            </form>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {item.tasks.length === 0
-                ? <p style={{ fontSize: 12, color: 'var(--text-disabled)', paddingTop: 4 }}>No tasks yet.</p>
-                : item.tasks.map(t => <TaskRow key={t.id} task={t} />)
-              }
-            </div>
+              {item.tasks.length > 0 && <span className="item-count-badge">{item.tasks.length}</span>}
+            </button>
+            <button
+              className={`sidebar-tab ${sidebarTab === 'activity' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('activity')}
+            >
+              Activity
+              {(item.comments.length + activityLogs.length) > 0 && (
+                <span className="item-count-badge">{item.comments.length + activityLogs.length}</span>
+              )}
+            </button>
           </div>
 
-          {/* Comments */}
-          <div className="item-sidebar-block">
-            <div className="item-section-label">
-              Comments
-              <span className="item-count-badge">{item.comments.length}</span>
+          {sidebarTab === 'tasks' && (
+            <div className="item-sidebar-block">
+              <form onSubmit={submitTask} className="item-quick-add">
+                <input
+                  className="form-input"
+                  value={taskTitle}
+                  onChange={e => setTaskTitle(e.target.value)}
+                  placeholder="Add a task…"
+                  style={{ flex: 1, fontSize: 13 }}
+                />
+                <button type="submit" className="btn btn-secondary btn-sm btn-icon" disabled={isAddingTask || !taskTitle.trim()} title="Add task">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+              </form>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {item.tasks.length === 0
+                  ? <p style={{ fontSize: 12, color: 'var(--text-disabled)', paddingTop: 4 }}>No tasks yet.</p>
+                  : item.tasks.map(t => <TaskRow key={t.id} task={t} />)
+                }
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
-              {item.comments.length === 0
-                ? <p style={{ fontSize: 12, color: 'var(--text-disabled)' }}>No comments yet. Be the first!</p>
-                : item.comments.map(c => (
-                    <div key={c.id} className="comment-item">
-                      <div className="comment-avatar">
-                        {(c.author.name ?? c.author.email)[0].toUpperCase()}
+          )}
+
+          {sidebarTab === 'activity' && (
+            <div className="item-sidebar-block" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {/* Timeline */}
+              <div className="activity-timeline">
+                {buildTimeline(item, activityLogs).map((event, i) => {
+                  if (event.kind === 'created') {
+                    return (
+                      <div key={`created-${i}`} className="activity-event">
+                        <div className="activity-event-dot" style={{ background: 'var(--brand-500)' }}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div className="activity-event-body">
+                          <span className="activity-event-who">{event.user.name ?? event.user.email}</span>
+                          {' '}<span className="activity-event-action">created this item</span>
+                          <div className="activity-event-time">{formatRelative(event.date)}</div>
+                        </div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 3 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {c.author.name ?? c.author.email}
-                            {c.author.email === user.email && (
-                              <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--brand-400)', fontWeight: 600 }}>you</span>
+                    )
+                  }
+                  if (event.kind === 'task') {
+                    return (
+                      <div key={`task-${event.task.id}`} className="activity-event">
+                        <div className="activity-event-dot" style={{ background: 'var(--accent-violet)' }}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </div>
+                        <div className="activity-event-body">
+                          <span className="activity-event-who">{event.task.creator.name ?? event.task.creator.email}</span>
+                          {' '}<span className="activity-event-action">added task</span>{' '}
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 12 }}>&quot;{event.task.title}&quot;</span>
+                          <div className="activity-event-time">{formatRelative(event.date)}</div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  if (event.kind === 'log') {
+                    let meta: { fieldName?: string; oldValue?: string; newValue?: string } = {}
+                    try { meta = JSON.parse(event.log.metaJson) } catch { /* ignore */ }
+                    const isTitle = event.log.action === 'title_updated'
+                    return (
+                      <div key={`log-${event.log.id}`} className="activity-event">
+                        <div className="activity-event-dot" style={{ background: 'var(--text-tertiary)' }}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                        <div className="activity-event-body">
+                          <span className="activity-event-who">{event.log.user.name ?? event.log.user.email}</span>
+                          {' '}<span className="activity-event-action">changed</span>{' '}
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12 }}>
+                            {isTitle ? 'title' : meta.fieldName}
+                          </span>
+                          {meta.oldValue !== undefined && (
+                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 3, lineHeight: 1.5 }}>
+                              <span style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--error)', padding: '1px 5px', borderRadius: 4, marginRight: 4 }}>
+                                {meta.oldValue || '(empty)'}
+                              </span>
+                              →
+                              <span style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', padding: '1px 5px', borderRadius: 4, marginLeft: 4 }}>
+                                {meta.newValue || '(empty)'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="activity-event-time">{formatRelative(event.date)}</div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  // comment
+                  return (
+                    <div key={`comment-${event.comment.id}`} className="activity-event comment-event">
+                      <div className="comment-avatar" style={{ width: 24, height: 24, fontSize: 10, flexShrink: 0 }}>
+                        {(event.comment.author.name ?? event.comment.author.email)[0].toUpperCase()}
+                      </div>
+                      <div className="activity-event-body">
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                          <span className="activity-event-who">
+                            {event.comment.author.name ?? event.comment.author.email}
+                            {event.comment.author.email === user.email && (
+                              <span style={{ marginLeft: 5, fontSize: 10, color: 'var(--brand-400)', fontWeight: 600 }}>you</span>
                             )}
                           </span>
-                          <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>{formatRelative(c.createdAt)}</span>
+                          <span className="activity-event-time">{formatRelative(event.date)}</span>
                         </div>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, wordBreak: 'break-word' }}>{c.content}</p>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: 4, wordBreak: 'break-word' }}>
+                          {renderWithMentions(event.comment.content)}
+                        </p>
                       </div>
                     </div>
-                  ))
-              }
-            </div>
-            <form onSubmit={submitComment} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <textarea
-                className="form-input form-textarea"
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                placeholder={`Comment as ${user.name ?? user.email}…`}
-                rows={3}
-                style={{ fontSize: 13, minHeight: 72 }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault()
-                    if (commentText.trim()) submitComment(e as unknown as React.FormEvent)
-                  }
-                }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>⌘↩ to send</span>
-                <button
-                  type="submit"
-                  className="btn btn-secondary btn-sm"
-                  disabled={isCommenting || !commentText.trim()}
-                >
-                  {isCommenting ? 'Sending…' : 'Comment'}
-                </button>
+                  )
+                })}
               </div>
-            </form>
-          </div>
+
+              {/* Comment form */}
+              <form onSubmit={submitComment} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 14, position: 'relative' }}>
+                {/* @mention autocomplete dropdown */}
+                {mentionQuery !== null && filteredMembers.length > 0 && (
+                  <div className="mention-dropdown">
+                    {filteredMembers.map((m, i) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`mention-option${i === mentionIdx ? ' active' : ''}`}
+                        onMouseDown={e => { e.preventDefault(); insertMention(m) }}
+                      >
+                        <div className="mention-avatar">{(m.name ?? m.email)[0].toUpperCase()}</div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600 }}>{m.name ?? m.email}</div>
+                          {m.name && <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{m.email}</div>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  ref={commentRef}
+                  className="form-input form-textarea"
+                  value={commentText}
+                  onChange={handleCommentChange}
+                  placeholder={`Comment as ${user.name ?? user.email}… (@mention to notify)`}
+                  rows={3}
+                  style={{ fontSize: 13, minHeight: 72 }}
+                  onKeyDown={handleCommentKeyDown}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>⌘↩ to send · @ to mention</span>
+                  <button type="submit" className="btn btn-secondary btn-sm" disabled={isCommenting || !commentText.trim()}>
+                    {isCommenting ? 'Sending…' : 'Comment'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       </div>
 
@@ -414,13 +768,95 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
           overflow-y: auto;
         }
         .item-detail-sidebar {
-          padding: 24px 18px;
+          padding: 0;
           border-left: 1px solid var(--border-subtle);
           background: var(--bg-surface);
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 28px;
+        }
+        .sidebar-tabs {
+          display: flex;
+          border-bottom: 1px solid var(--border-subtle);
+          flex-shrink: 0;
+        }
+        .sidebar-tab {
+          flex: 1;
+          padding: 12px 16px;
+          font-size: 12px;
+          font-weight: 600;
+          font-family: inherit;
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-bottom: -1px;
+        }
+        .sidebar-tab:hover { color: var(--text-secondary); }
+        .sidebar-tab.active { color: var(--brand-400); border-bottom-color: var(--brand-500); }
+        .item-sidebar-block {
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          flex: 1;
+        }
+        .activity-timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .activity-event {
+          display: flex;
+          gap: 10px;
+          padding: 8px 0;
+          position: relative;
+        }
+        .activity-event::before {
+          content: '';
+          position: absolute;
+          left: 11px;
+          top: 28px;
+          bottom: -8px;
+          width: 1px;
+          background: var(--border-subtle);
+        }
+        .activity-event:last-child::before { display: none; }
+        .activity-event-dot {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: #fff;
+        }
+        .comment-event .activity-event-dot { background: transparent !important; }
+        .activity-event-body {
+          flex: 1;
+          min-width: 0;
+          padding-top: 2px;
+        }
+        .activity-event-who {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+        .activity-event-action {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .activity-event-time {
+          font-size: 11px;
+          color: var(--text-disabled);
+          margin-top: 2px;
         }
         .item-title-input {
           font-size: 26px;
@@ -568,6 +1004,51 @@ export default function ItemDetail({ item, fields, user, workspaceId }: Props) {
           .item-detail-body { grid-template-columns: 1fr; }
           .item-detail-sidebar { border-left: none; border-top: 1px solid var(--border-subtle); }
           .item-detail-main { padding: 24px 20px; }
+        }
+        .desc-placeholder-area:hover {
+          border-color: var(--border-default) !important;
+          background: var(--bg-elevated);
+        }
+        .mention-dropdown {
+          position: absolute;
+          bottom: calc(100% + 4px);
+          left: 0;
+          right: 0;
+          background: var(--bg-overlay);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          box-shadow: var(--shadow-xl);
+          overflow: hidden;
+          z-index: 100;
+          animation: fadeIn 80ms ease;
+        }
+        .mention-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 8px 12px;
+          background: none;
+          border: none;
+          text-align: left;
+          cursor: pointer;
+          color: var(--text-primary);
+          font-family: inherit;
+          transition: background var(--transition-fast);
+        }
+        .mention-option:hover, .mention-option.active { background: var(--bg-hover); }
+        .mention-avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, var(--brand-600), var(--accent-violet));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 800;
+          color: #fff;
+          flex-shrink: 0;
         }
       `}</style>
     </div>

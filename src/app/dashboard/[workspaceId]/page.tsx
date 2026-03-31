@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import CreateAppButton from '@/components/CreateAppButton'
+import { formatRelative } from '@/lib/utils'
 
 export default async function WorkspacePage({
   params,
@@ -26,12 +27,23 @@ export default async function WorkspacePage({
   const isMember = workspace.members.some(m => m.userId === user.id)
   if (!isMember) redirect('/dashboard')
 
-  const recentItems = await prisma.item.findMany({
-    where: { app: { workspaceId } },
-    include: { app: true, creator: true },
-    orderBy: { updatedAt: 'desc' },
-    take: 8,
-  })
+  const [recentItems, taskStats] = await Promise.all([
+    prisma.item.findMany({
+      where: { app: { workspaceId } },
+      include: { app: true, creator: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 8,
+    }),
+    prisma.task.groupBy({
+      by: ['status'],
+      where: { item: { app: { workspaceId } } },
+      _count: true,
+    }),
+  ])
+
+  const totalTasks = taskStats.reduce((s, t) => s + t._count, 0)
+  const doneTasks = taskStats.find(t => t.status === 'done')?._count ?? 0
+  const taskCompletionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : null
 
   return (
     <div className="page-body">
@@ -64,6 +76,76 @@ export default async function WorkspacePage({
           </div>
         ))}
       </div>
+
+      {/* Analytics mini-charts */}
+      {workspace.apps.length > 0 && (
+        <div className="ws-analytics-row">
+          {/* Items per app bar chart */}
+          <div className="ws-chart-card">
+            <div className="ws-chart-title">Items per App</div>
+            <div className="ws-bar-chart">
+              {(() => {
+                const maxCount = Math.max(1, ...workspace.apps.map(a => a._count.items))
+                return workspace.apps.map(app => (
+                  <div key={app.id} className="ws-bar-item" title={`${app.name}: ${app._count.items} items`}>
+                    <div className="ws-bar-track">
+                      <div
+                        className="ws-bar-fill"
+                        style={{
+                          height: `${Math.max(4, (app._count.items / maxCount) * 100)}%`,
+                          background: app.color,
+                        }}
+                      />
+                    </div>
+                    <div className="ws-bar-label">{app.iconEmoji}</div>
+                    <div className="ws-bar-count">{app._count.items}</div>
+                  </div>
+                ))
+              })()}
+            </div>
+          </div>
+
+          {/* Task completion donut */}
+          {taskCompletionPct !== null && (
+            <div className="ws-chart-card">
+              <div className="ws-chart-title">Task Completion</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <svg width="80" height="80" viewBox="0 0 80 80">
+                  {(() => {
+                    const r = 32
+                    const cx = 40, cy = 40
+                    const circ = 2 * Math.PI * r
+                    const pct = taskCompletionPct / 100
+                    return (
+                      <>
+                        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-hover)" strokeWidth="10" />
+                        <circle
+                          cx={cx} cy={cy} r={r}
+                          fill="none"
+                          stroke="var(--success)"
+                          strokeWidth="10"
+                          strokeDasharray={`${circ * pct} ${circ * (1 - pct)}`}
+                          strokeDashoffset={circ * 0.25}
+                          strokeLinecap="round"
+                          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                        />
+                        <text x={cx} y={cy + 5} textAnchor="middle" fill="var(--text-primary)" fontSize="16" fontWeight="800">{taskCompletionPct}%</text>
+                      </>
+                    )
+                  })()}
+                </svg>
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                    <div><span style={{ color: 'var(--success)', fontWeight: 700 }}>{doneTasks}</span> done</div>
+                    <div><span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>{totalTasks - doneTasks}</span> remaining</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 4 }}>{totalTasks} total tasks</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="ws-content-grid">
         {/* Apps section */}
@@ -190,18 +272,18 @@ export default async function WorkspacePage({
         .member-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-500), var(--accent-violet)); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
         .member-name { font-size: 13px; font-weight: 600; }
         .member-role { font-size: 11px; color: var(--text-tertiary); text-transform: capitalize; }
+        .ws-analytics-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+        .ws-chart-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 16px 20px; flex: 1; min-width: 220px; }
+        .ws-chart-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px; }
+        .ws-bar-chart { display: flex; gap: 8px; align-items: flex-end; height: 80px; }
+        .ws-bar-item { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 20px; max-width: 48px; }
+        .ws-bar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
+        .ws-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s ease; }
+        .ws-bar-label { font-size: 14px; }
+        .ws-bar-count { font-size: 10px; color: var(--text-tertiary); font-weight: 600; }
         @media (max-width: 900px) { .ws-content-grid { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   )
 }
 
-function formatRelative(date: Date): string {
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
