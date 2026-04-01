@@ -60,12 +60,12 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
         <span className="crumb-active" style={{ fontWeight: 700, letterSpacing: '-0.2px' }}>Flexora</span>
       </div>
       <div className="topbar-actions">
-        <SearchModal />
+        <div className="topbar-search-wrapper"><SearchModal /></div>
         <NotificationBell notifications={notifications} unreadCount={unreadCount} />
 
         {/* Language toggle */}
         <button
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm topbar-lang-btn"
           title={t('topbar.switchLangTitle')}
           onClick={() => setLang(lang === 'it' ? 'en' : 'it')}
           style={{
@@ -82,7 +82,7 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
         <button
           className="btn btn-ghost btn-sm btn-icon"
           title={theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
-          style={{ color: 'var(--text-tertiary)', width: 28, height: 28 }}
+          style={{ color: 'var(--text-tertiary)', width: 34, height: 34 }}
           onClick={toggleTheme}
         >
           {theme === 'dark' ? (
@@ -101,9 +101,9 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
 
         {/* Keyboard shortcuts */}
         <button
-          className="btn btn-ghost btn-sm btn-icon"
+          className="btn btn-ghost btn-sm btn-icon topbar-shortcuts-btn"
           title={t('topbar.shortcuts')}
-          style={{ color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 700, width: 28, height: 28 }}
+          style={{ color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 700, width: 34, height: 34 }}
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
         >?</button>
 

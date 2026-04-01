@@ -887,6 +887,20 @@ html, body {
    RESPONSIVE — mobile-first breakpoints
    ===================================================== */
 
+/* Hide topbar search on mobile — replaced by bottom bar */
+.topbar-search-wrapper {
+  display: contents;
+}
+@media (max-width: 768px) {
+  .topbar-search-wrapper {
+    display: none;
+  }
+  /* Bottom padding to avoid content hidden behind bottom bar */
+  .main-content {
+    padding-bottom: 64px;
+  }
+}
+
 @media (max-width: 768px) {
   /* Sidebar becomes an off-canvas overlay */
   .sidebar {
@@ -912,7 +926,16 @@ html, body {
 
   /* Reduce page padding */
   .page-body {
-    padding: 20px 18px;
+    padding: 16px 14px;
+  }
+
+  /* Topbar compact */
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .topbar-actions {
+    gap: 6px;
   }
 
   /* Stack page header vertically */
@@ -932,16 +955,74 @@ html, body {
   /* Topbar hamburger visible */
   .topbar-hamburger {
     display: flex;
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Larger touch targets for sidebar links */
+  .sidebar-link {
+    padding: 11px 12px;
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .sidebar-section-label {
+    padding: 16px 10px 6px;
+  }
+
+  /* Prevent iOS font zoom on inputs */
+  .form-input,
+  .form-textarea,
+  .form-select {
+    font-size: 16px;
   }
 
   /* Modals use more screen space */
   .modal-backdrop {
-    padding: 12px;
+    padding: 0;
     align-items: flex-end;
   }
   .modal {
-    max-height: 92vh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 94vh;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+  }
+
+  /* Tables scroll horizontally */
+  .table-wrapper {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  /* Cards full width */
+  .card-body { padding: 16px; }
+  .card-header { padding: 14px 16px 12px; }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .page-body {
+    padding: 12px 12px;
+  }
+  .topbar {
+    padding: 0 10px;
+  }
+  /* Hide shortcuts button and language toggle on very small screens */
+  .topbar-shortcuts-btn,
+  .topbar-lang-btn {
+    display: none;
+  }
+}
+
+/* Disable sticky hover on touch devices */
+@media (hover: none) {
+  .btn:hover,
+  .sidebar-link:hover,
+  .card:hover,
+  .data-table tbody tr:hover {
+    transform: none;
+    filter: none;
   }
 }
 

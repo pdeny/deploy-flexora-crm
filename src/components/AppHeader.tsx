@@ -1382,6 +1382,49 @@ export default function AppHeader({
           gap: 16px;
           min-height: 58px;
         }
+        @media (max-width: 768px) {
+          .app-header-bar {
+            padding: 8px 12px;
+            gap: 8px;
+            flex-wrap: wrap;
+            min-height: unset;
+          }
+          .app-header-bar > div:first-child {
+            flex: 1;
+            min-width: 0;
+          }
+          .app-header-bar > div:last-child {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            flex-wrap: nowrap !important;
+            padding-bottom: 2px;
+          }
+          .app-header-bar > div:last-child::-webkit-scrollbar {
+            display: none;
+          }
+          .app-header-bar h1 {
+            font-size: 14px !important;
+          }
+          .app-more-menu {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: auto;
+            border-radius: 16px 16px 0 0;
+            min-width: unset;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 8px 4px 24px;
+          }
+          .app-more-item {
+            padding: 12px 14px;
+            font-size: 14px;
+            min-height: 44px;
+          }
+        }
         .app-more-menu {
           position: absolute;
           top: calc(100% + 6px);

@@ -203,6 +203,22 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
           padding-left: 28px !important;
           font-size: 12px !important;
         }
+        @media (max-width: 768px) {
+          .sidebar-user {
+            padding: 10px 12px;
+            min-height: 52px;
+          }
+          .sidebar-logout-btn {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+          }
+          .sidebar-sub-link {
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            min-height: 44px !important;
+          }
+        }
       `}</style>
     </aside>
     </>

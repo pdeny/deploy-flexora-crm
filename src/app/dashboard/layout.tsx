@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal'
+import MobileBottomBar from '@/components/MobileBottomBar'
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +38,7 @@ export default async function DashboardLayout({
         {children}
         <KeyboardShortcutsModal />
       </div>
+      <MobileBottomBar unreadCount={unreadCount} />
     </div>
   )
 }
