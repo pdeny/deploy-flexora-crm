@@ -27,6 +27,8 @@ type Props = {
   userId: string
   readOnly?: boolean
   canReorder?: boolean
+  /** itemId → fieldId → linked items (title + id) */
+  relationsMap?: Record<string, Record<string, { id: string; title: string }[]>>
 }
 
 type ContextMenu = {
@@ -611,7 +613,7 @@ function BulkToolbar({
 
 // ─── Main table ───────────────────────────────────────────────────────────────
 
-export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false, canReorder = false }: Props) {
+export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false, canReorder = false, relationsMap = {} }: Props) {
   const { t } = useT()
   const router = useRouter()
   const [localItems, setLocalItems] = useState<ItemRow[]>(items)
@@ -864,12 +866,28 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
           {/* Custom field cells */}
           {fields.map(f => {
             if (f.type === 'relation') {
-              // Relation data is not in dataJson — show a placeholder
+              const linked = relationsMap[item.id]?.[f.id] ?? []
               return (
-                <td key={f.id} style={{ minWidth: 100 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-disabled)', fontStyle: 'italic' }}>
-                    {t('table.openItem')}
-                  </span>
+                <td key={f.id} style={{ minWidth: 120 }}>
+                  {linked.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      {linked.map(l => (
+                        <span key={l.id} style={{
+                          display: 'inline-block',
+                          background: 'rgba(99,102,241,0.12)',
+                          color: 'var(--brand-300)',
+                          border: '1px solid rgba(99,102,241,0.22)',
+                          borderRadius: 4,
+                          padding: '1px 6px',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}>{l.title}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>—</span>
+                  )}
                 </td>
               )
             }

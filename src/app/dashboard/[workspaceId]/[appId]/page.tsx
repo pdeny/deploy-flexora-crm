@@ -104,6 +104,23 @@ export default async function AppPage({
     }) as typeof items
   }
 
+  // Fetch linked item titles for relation fields so the table can display them
+  const relationFields = fields.filter(f => f.type === 'relation')
+  const relationsMap: Record<string, Record<string, { id: string; title: string }[]>> = {}
+  if (relationFields.length > 0 && finalItems.length > 0) {
+    const itemIds = finalItems.map(i => i.id)
+    const relFieldIds = relationFields.map(f => f.id)
+    const rels = await prisma.itemRelation.findMany({
+      where: { fieldId: { in: relFieldIds }, fromItemId: { in: itemIds } },
+      include: { toItem: { select: { id: true, title: true } } },
+    })
+    for (const r of rels) {
+      if (!relationsMap[r.fromItemId]) relationsMap[r.fromItemId] = {}
+      if (!relationsMap[r.fromItemId][r.fieldId]) relationsMap[r.fromItemId][r.fieldId] = []
+      relationsMap[r.fromItemId][r.fieldId].push({ id: r.toItemId, title: r.toItem.title })
+    }
+  }
+
   const view = (['kanban', 'gallery', 'calendar', 'timeline'].includes(sp.view ?? '') ? sp.view : 'table') as 'table' | 'kanban' | 'gallery' | 'calendar' | 'timeline'
 
   return (
@@ -121,7 +138,7 @@ export default async function AppPage({
         workspaceApps={workspaceApps}
       />
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {view === 'table' && <ItemsTable app={app} items={finalItems} fields={fields} workspaceId={workspaceId} userId={user.id} canReorder={!sortField} />}
+        {view === 'table' && <ItemsTable app={app} items={finalItems} fields={fields} workspaceId={workspaceId} userId={user.id} canReorder={!sortField} relationsMap={relationsMap} />}
         {view === 'kanban' && <KanbanBoard app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
         {view === 'gallery' && <GalleryView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
         {view === 'calendar' && <CalendarView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
