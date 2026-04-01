@@ -1,7 +1,10 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import CreateAppButton from '@/components/CreateAppButton'
+import { duplicateApp } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
 import { useT } from '@/contexts/LanguageContext'
 
@@ -57,6 +60,22 @@ export default function WorkspaceContent({
   taskCompletionPct,
 }: Props) {
   const { t } = useT()
+  const router = useRouter()
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleDuplicateApp(e: React.MouseEvent, appId: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDuplicatingId(appId)
+    startTransition(async () => {
+      const result = await duplicateApp(appId)
+      setDuplicatingId(null)
+      if ('app' in result && result.app) {
+        router.push(`/dashboard/${workspaceId}/${result.app.id}`)
+      }
+    })
+  }
 
   const stats = [
     { label: t('ws.stat.apps'), value: apps.length, icon: '📱' },
@@ -183,7 +202,23 @@ export default function WorkspaceContent({
                     <div className="app-emoji-bg" style={{ background: `${app.color}22`, border: `1px solid ${app.color}44` }}>
                       <span className="app-emoji">{app.iconEmoji}</span>
                     </div>
-                    <div className="app-item-count">{t('ws.itemCount', { n: app.itemCount })}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button
+                        className="app-dup-btn"
+                        title={t('ws.duplicateApp')}
+                        onClick={(e) => handleDuplicateApp(e, app.id)}
+                        disabled={isPending && duplicatingId === app.id}
+                      >
+                        {isPending && duplicatingId === app.id ? (
+                          <span className="spinner" style={{ width: 12, height: 12 }} />
+                        ) : (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                          </svg>
+                        )}
+                      </button>
+                      <div className="app-item-count">{t('ws.itemCount', { n: app.itemCount })}</div>
+                    </div>
                   </div>
                   <div className="app-name">{app.name}</div>
                   {app.description && <div className="app-desc">{app.description}</div>}
@@ -272,6 +307,22 @@ export default function WorkspaceContent({
         .app-emoji-bg { width: 38px; height: 38px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; }
         .app-emoji { font-size: 20px; }
         .app-item-count { font-size: 11px; color: var(--text-tertiary); }
+        .app-dup-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          border-radius: var(--radius-md);
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          opacity: 0;
+        }
+        .app-card:hover .app-dup-btn { opacity: 1; }
+        .app-dup-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
         .app-name { font-size: 14px; font-weight: 700; }
         .app-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .activity-feed { display: flex; flex-direction: column; gap: 2px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }

@@ -85,6 +85,7 @@ export const en: LangDict = {
   'dashboard.stat.items': 'Items',
   'dashboard.section.workspaces': 'Workspaces',
   'dashboard.section.recent': 'Recent Items',
+  'dashboard.duplicateWorkspace': 'Duplicate Workspace',
   'dashboard.noRecent': 'No recent items.',
 
   // Create Workspace
@@ -447,6 +448,7 @@ export const en: LangDict = {
   'ws.noApps': 'No apps yet',
   'ws.noAppsDesc': 'Create your first app to start organising data.',
   'ws.itemCount': '{n} items',
+  'ws.duplicateApp': 'Duplicate App',
   'ws.activity': 'Recent Activity',
   'ws.noActivity': 'No activity yet.',
   'ws.members': 'Members ({n})',
@@ -529,6 +531,7 @@ export const en: LangDict = {
   'header.fieldType.image': 'Image',
   'header.fieldType.calculation': 'Formula',
   'header.fieldType.relation': 'Linked Record',
+  'header.duplicateApp': 'Duplicate App',
   'header.colorRules': 'Color Rules',
   'header.fieldType.lookup': 'Lookup',
   'header.fieldType.rollup': 'Rollup',

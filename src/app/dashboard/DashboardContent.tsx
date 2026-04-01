@@ -1,7 +1,10 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import CreateWorkspaceButton from '@/components/CreateWorkspaceButton'
+import { duplicateWorkspace } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
 import { useT } from '@/contexts/LanguageContext'
 
@@ -38,6 +41,22 @@ type Props = {
 
 export default function DashboardContent({ userName, memberships, recentItems, totalApps, totalItems }: Props) {
   const { t } = useT()
+  const router = useRouter()
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleDuplicate(e: React.MouseEvent, workspaceId: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDuplicatingId(workspaceId)
+    startTransition(async () => {
+      const result = await duplicateWorkspace(workspaceId)
+      setDuplicatingId(null)
+      if ('workspace' in result && result.workspace) {
+        router.push(`/dashboard/${result.workspace.id}`)
+      }
+    })
+  }
 
   return (
     <div className="page-body">
@@ -86,7 +105,23 @@ export default function DashboardContent({ userName, memberships, recentItems, t
                   <Link key={workspace.id} href={`/dashboard/${workspace.id}`} className="workspace-card" style={{ '--ws-color': workspace.color } as React.CSSProperties}>
                     <div className="ws-card-header">
                       <div className="ws-emoji">{workspace.iconEmoji}</div>
-                      <span className="badge badge-default">{role}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                          className="ws-dup-btn"
+                          title={t('dashboard.duplicateWorkspace')}
+                          onClick={(e) => handleDuplicate(e, workspace.id)}
+                          disabled={isPending && duplicatingId === workspace.id}
+                        >
+                          {isPending && duplicatingId === workspace.id ? (
+                            <span className="spinner" style={{ width: 12, height: 12 }} />
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                          )}
+                        </button>
+                        <span className="badge badge-default">{role}</span>
+                      </div>
                     </div>
                     <h3 className="ws-name">{workspace.name}</h3>
                     {workspace.description && <p className="ws-desc">{workspace.description}</p>}
@@ -208,6 +243,22 @@ export default function DashboardContent({ userName, memberships, recentItems, t
         .ws-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
         .ws-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .ws-stats { display: flex; gap: 14px; font-size: 12px; color: var(--text-tertiary); margin-top: auto; flex-wrap: wrap; }
+        .ws-dup-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: var(--radius-md);
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text-tertiary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          opacity: 0;
+        }
+        .workspace-card:hover .ws-dup-btn { opacity: 1; }
+        .ws-dup-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
       `}</style>
     </div>
   )

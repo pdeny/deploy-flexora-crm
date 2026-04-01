@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateAppFields, createItem, updateApp, deleteApp, searchItemsForRelation, addRelation } from '@/lib/actions/workspace'
+import { updateAppFields, createItem, updateApp, deleteApp, duplicateApp, searchItemsForRelation, addRelation } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
@@ -622,6 +622,20 @@ export default function AppHeader({
                       </span>
                     ) : null
                   })()}
+                </button>
+                <button className="app-more-item" onClick={() => {
+                  setShowMore(false)
+                  startEdit(async () => {
+                    const result = await duplicateApp(app.id)
+                    if ('app' in result && result.app) {
+                      router.push(`/dashboard/${workspaceId}/${result.app.id}`)
+                    }
+                  })
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  {t('header.duplicateApp')}
                 </button>
                 <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
                 <button className="app-more-item danger" onClick={() => { setShowMore(false); setDeleteConfirmName(''); setShowDeleteConfirm(true) }}>

@@ -83,6 +83,7 @@ export const it = {
   'dashboard.stat.items': 'Elementi',
   'dashboard.section.workspaces': 'Workspace',
   'dashboard.section.recent': 'Elementi recenti',
+  'dashboard.duplicateWorkspace': 'Duplica Workspace',
   'dashboard.noRecent': 'Nessun elemento recente.',
 
   // Create Workspace
@@ -445,6 +446,7 @@ export const it = {
   'ws.noApps': 'Nessuna app',
   'ws.noAppsDesc': 'Crea la tua prima app per iniziare a organizzare dati.',
   'ws.itemCount': '{n} elementi',
+  'ws.duplicateApp': 'Duplica App',
   'ws.activity': 'Attività recente',
   'ws.noActivity': 'Nessuna attività.',
   'ws.members': 'Membri ({n})',
@@ -527,6 +529,7 @@ export const it = {
   'header.fieldType.image': 'Immagine',
   'header.fieldType.calculation': 'Formula',
   'header.fieldType.relation': 'Record collegato',
+  'header.duplicateApp': 'Duplica App',
   'header.colorRules': 'Regole colore',
   'header.fieldType.lookup': 'Cerca valore',
   'header.fieldType.rollup': 'Aggregazione',

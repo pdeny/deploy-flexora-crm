@@ -441,6 +441,139 @@ export async function deleteApp(appId: string) {
   return { success: true, workspaceId: app.workspaceId }
 }
 
+export async function duplicateApp(appId: string) {
+  const user = await requireUser()
+
+  const app = await prisma.app.findUnique({
+    where: { id: appId },
+    include: {
+      workspace: { include: { members: true } },
+      items: true,
+      automations: true,
+    },
+  })
+  if (!app) return { error: 'App not found' }
+
+  const isMember = app.workspace.members.some(m => m.userId === user.id)
+  if (!isMember) return { error: 'Unauthorized' }
+
+  const newApp = await prisma.app.create({
+    data: {
+      workspaceId: app.workspaceId,
+      name: `Copy of ${app.name}`,
+      description: app.description,
+      iconEmoji: app.iconEmoji,
+      color: app.color,
+      fieldsJson: app.fieldsJson,
+      viewType: app.viewType,
+      formFieldsJson: app.formFieldsJson,
+      colorRulesJson: app.colorRulesJson,
+    },
+  })
+
+  // Duplicate items
+  if (app.items.length > 0) {
+    await prisma.item.createMany({
+      data: app.items.map(item => ({
+        appId: newApp.id,
+        title: item.title,
+        dataJson: item.dataJson,
+        position: item.position,
+        creatorId: user.id,
+      })),
+    })
+  }
+
+  // Duplicate automations
+  if (app.automations.length > 0) {
+    await prisma.automation.createMany({
+      data: app.automations.map(a => ({
+        appId: newApp.id,
+        name: a.name,
+        isActive: a.isActive,
+        triggerJson: a.triggerJson,
+        actionsJson: a.actionsJson,
+      })),
+    })
+  }
+
+  revalidatePath(`/dashboard/${app.workspaceId}`)
+  return { app: newApp }
+}
+
+export async function duplicateWorkspace(workspaceId: string) {
+  const user = await requireUser()
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    include: {
+      members: true,
+      apps: { include: { items: true, automations: true } },
+    },
+  })
+  if (!workspace) return { error: 'Workspace not found' }
+
+  const isMember = workspace.members.some(m => m.userId === user.id)
+  if (!isMember) return { error: 'Unauthorized' }
+
+  const slug = workspace.slug + '-copy-' + Date.now()
+
+  const newWorkspace = await prisma.workspace.create({
+    data: {
+      name: `Copy of ${workspace.name}`,
+      slug,
+      description: workspace.description,
+      color: workspace.color,
+      iconEmoji: workspace.iconEmoji,
+      members: { create: { userId: user.id, role: 'owner' } },
+    },
+  })
+
+  // Duplicate each app with its items and automations
+  for (const app of workspace.apps) {
+    const newApp = await prisma.app.create({
+      data: {
+        workspaceId: newWorkspace.id,
+        name: app.name,
+        description: app.description,
+        iconEmoji: app.iconEmoji,
+        color: app.color,
+        fieldsJson: app.fieldsJson,
+        viewType: app.viewType,
+        formFieldsJson: app.formFieldsJson,
+        colorRulesJson: app.colorRulesJson,
+      },
+    })
+
+    if (app.items.length > 0) {
+      await prisma.item.createMany({
+        data: app.items.map(item => ({
+          appId: newApp.id,
+          title: item.title,
+          dataJson: item.dataJson,
+          position: item.position,
+          creatorId: user.id,
+        })),
+      })
+    }
+
+    if (app.automations.length > 0) {
+      await prisma.automation.createMany({
+        data: app.automations.map(a => ({
+          appId: newApp.id,
+          name: a.name,
+          isActive: a.isActive,
+          triggerJson: a.triggerJson,
+          actionsJson: a.actionsJson,
+        })),
+      })
+    }
+  }
+
+  revalidatePath('/dashboard')
+  return { workspace: newWorkspace }
+}
+
 export async function searchItems(query: string) {
   const user = await requireUser()
   if (!query.trim()) return { results: [] }
