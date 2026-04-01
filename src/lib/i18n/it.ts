@@ -532,7 +532,8 @@ export const it = {
   // Chat
   'sidebar.chat': 'Chat',
   'chat.empty': 'Nessun messaggio.\nDi\' ciao al tuo team! 👋',
-  'chat.placeholder': 'Messaggio…',
+  'chat.placeholder': 'Messaggio… scrivi @ per menzionare',
+  'chat.mentionMembers': 'MEMBRI',
 } as const
 
 export type LangKey = keyof typeof it

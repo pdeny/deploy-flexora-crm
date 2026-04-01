@@ -534,5 +534,6 @@ export const en: LangDict = {
   // Chat
   'sidebar.chat': 'Chat',
   'chat.empty': 'No messages yet.\nSay hello to your team! 👋',
-  'chat.placeholder': 'Message…',
+  'chat.placeholder': 'Message… type @ to mention',
+  'chat.mentionMembers': 'MEMBERS',
 }
