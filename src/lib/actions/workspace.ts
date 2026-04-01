@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { executeAutomations } from '@/lib/actions/automations'
 import { shouldNotify } from '@/lib/notifPrefs'
+import { getWorkspacePermissions, getAppPermissions } from '@/lib/permissions'
 import type { AppField } from '@/lib/types'
 
 function formatActivityValue(value: unknown, field?: AppField): string {
@@ -65,11 +66,8 @@ export async function createApp(formData: FormData) {
 
   if (!workspaceId || !name?.trim()) return { error: 'Workspace and name are required' }
 
-  // Verify membership
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-  })
-  if (!member) return { error: 'Not a member of this workspace' }
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('app:create')) return { error: 'Unauthorized' }
 
   const app = await prisma.app.create({
     data: {
@@ -88,35 +86,21 @@ export async function createApp(formData: FormData) {
 
 export async function updateAppFields(appId: string, fieldsJson: string) {
   const user = await requireUser()
-
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:update')) return { error: 'Unauthorized' }
 
   await prisma.app.update({ where: { id: appId }, data: { fieldsJson } })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { success: true }
 }
 
 export async function saveColorRules(appId: string, colorRulesJson: string) {
   const user = await requireUser()
-
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:update')) return { error: 'Unauthorized' }
 
   await prisma.app.update({ where: { id: appId }, data: { colorRulesJson } })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { success: true }
 }
 
@@ -128,14 +112,11 @@ export async function createItem(formData: FormData) {
 
   if (!appId || !title?.trim()) return { error: 'App and title are required' }
 
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('item:create')) return { error: 'Unauthorized' }
 
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const app = await prisma.app.findUnique({ where: { id: appId } })
+  if (!app) return { error: 'App not found' }
 
   // Validate required fields
   const fields: AppField[] = JSON.parse(app.fieldsJson)
@@ -177,12 +158,12 @@ export async function updateItem(itemId: string, data: { title?: string; dataJso
 
   const item = await prisma.item.findUnique({
     where: { id: itemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
 
-  const isMember = item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:update')) return { error: 'Unauthorized' }
 
   // Build activity log entries
   const fields: AppField[] = JSON.parse(item.app.fieldsJson)
@@ -242,12 +223,12 @@ export async function deleteItem(itemId: string) {
 
   const item = await prisma.item.findUnique({
     where: { id: itemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
 
-  const isMember = item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:delete')) return { error: 'Unauthorized' }
 
   await prisma.item.delete({ where: { id: itemId } })
   revalidatePath(`/dashboard/${item.app.workspaceId}/${item.appId}`)
@@ -267,8 +248,8 @@ export async function addComment(formData: FormData) {
   })
   if (!item) return { error: 'Item not found' }
 
-  const isMember = item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:comment')) return { error: 'Unauthorized' }
 
   const comment = await prisma.comment.create({
     data: { itemId, authorId: user.id, content: content.trim() },
@@ -332,19 +313,20 @@ export async function bulkDeleteItems(itemIds: string[]) {
   const user = await requireUser()
   if (!itemIds.length) return { error: 'No items specified' }
 
-  // Verify all items belong to workspaces the user is a member of
   const items = await prisma.item.findMany({
     where: { id: { in: itemIds } },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
-  const unauthorized = items.some(item =>
-    !item.app.workspace.members.some(m => m.userId === user.id)
-  )
-  if (unauthorized) return { error: 'Unauthorized' }
+
+  // Check permission per distinct app
+  const appIds = [...new Set(items.map(i => i.appId))]
+  for (const aId of appIds) {
+    const perms = await getAppPermissions(user.id, aId).catch(() => null)
+    if (!perms?.can('item:delete')) return { error: 'Unauthorized' }
+  }
 
   await prisma.item.deleteMany({ where: { id: { in: itemIds } } })
 
-  // Revalidate all affected app paths
   const appPaths = [...new Set(items.map(i => `/dashboard/${i.app.workspaceId}/${i.appId}`))]
   for (const path of appPaths) revalidatePath(path)
   return { success: true, count: itemIds.length }
@@ -353,16 +335,12 @@ export async function bulkDeleteItems(itemIds: string[]) {
 export async function reorderItems(appId: string, orderedIds: string[]) {
   const user = await requireUser()
   if (!orderedIds.length) return { error: 'No items' }
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('item:update')) return { error: 'Unauthorized' }
   await prisma.$transaction(
     orderedIds.map((id, i) => prisma.item.update({ where: { id }, data: { position: (i + 1) * 1000 } }))
   )
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { success: true }
 }
 
@@ -376,12 +354,14 @@ export async function bulkUpdateField(
 
   const items = await prisma.item.findMany({
     where: { id: { in: itemIds } },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
-  const unauthorized = items.some(item =>
-    !item.app.workspace.members.some(m => m.userId === user.id)
-  )
-  if (unauthorized) return { error: 'Unauthorized' }
+
+  const appIds = [...new Set(items.map(i => i.appId))]
+  for (const aId of appIds) {
+    const perms = await getAppPermissions(user.id, aId).catch(() => null)
+    if (!perms?.can('item:update')) return { error: 'Unauthorized' }
+  }
 
   // Update each item's dataJson
   for (const item of items) {
@@ -401,13 +381,8 @@ export async function updateApp(
   data: { name?: string; description?: string; iconEmoji?: string; color?: string },
 ) {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:update')) return { error: 'Unauthorized' }
   if (data.name !== undefined && !data.name.trim()) return { error: 'Name is required' }
 
   await prisma.app.update({
@@ -419,43 +394,31 @@ export async function updateApp(
       ...(data.color ? { color: data.color } : {}),
     },
   })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
-  revalidatePath(`/dashboard/${app.workspaceId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}`)
   return { success: true }
 }
 
 export async function deleteApp(appId: string) {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-
-  const member = app.workspace.members.find(m => m.userId === user.id)
-  if (!member) return { error: 'Unauthorized' }
-  if (member.role !== 'owner' && member.role !== 'admin') return { error: 'Only owners and admins can delete apps' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:delete')) return { error: 'Unauthorized' }
 
   await prisma.app.delete({ where: { id: appId } })
-  revalidatePath(`/dashboard/${app.workspaceId}`)
-  return { success: true, workspaceId: app.workspaceId }
+  revalidatePath(`/dashboard/${perms.workspaceId}`)
+  return { success: true, workspaceId: perms.workspaceId }
 }
 
 export async function duplicateApp(appId: string) {
   const user = await requireUser()
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:duplicate')) return { error: 'Unauthorized' }
 
   const app = await prisma.app.findUnique({
     where: { id: appId },
-    include: {
-      workspace: { include: { members: true } },
-      items: true,
-      automations: true,
-    },
+    include: { items: true, automations: true },
   })
   if (!app) return { error: 'App not found' }
-
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
 
   const newApp = await prisma.app.create({
     data: {
@@ -513,8 +476,8 @@ export async function duplicateWorkspace(workspaceId: string) {
   })
   if (!workspace) return { error: 'Workspace not found' }
 
-  const isMember = workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const wsPerms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!wsPerms?.can('workspace:read')) return { error: 'Unauthorized' }
 
   const slug = workspace.slug + '-copy-' + Date.now()
 
@@ -626,12 +589,12 @@ export async function duplicateItem(itemId: string) {
 
   const item = await prisma.item.findUnique({
     where: { id: itemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
 
-  const isMember = item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:create')) return { error: 'Unauthorized' }
 
   const copy = await prisma.item.create({
     data: {
@@ -657,12 +620,12 @@ export async function createTask(formData: FormData) {
 
   const item = await prisma.item.findUnique({
     where: { id: itemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
 
-  const isMember = item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:manageTasks')) return { error: 'Unauthorized' }
 
   const task = await prisma.task.create({
     data: {
@@ -684,12 +647,12 @@ export async function updateTaskStatus(taskId: string, status: string) {
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { item: { include: { app: { include: { workspace: { include: { members: true } } } } } } },
+    include: { item: { include: { app: true } } },
   })
   if (!task) return { error: 'Task not found' }
 
-  const isMember = task.item.app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, task.item.appId).catch(() => null)
+  if (!perms?.can('item:manageTasks')) return { error: 'Unauthorized' }
 
   await prisma.task.update({ where: { id: taskId }, data: { status } })
   revalidatePath(`/dashboard/${task.item.app.workspaceId}/${task.item.appId}/${task.itemId}`)
@@ -706,10 +669,11 @@ export async function addRelation(
   const user = await requireUser()
   const item = await prisma.item.findUnique({
     where: { id: fromItemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
-  if (!item.app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:update')) return { error: 'Unauthorized' }
 
   await prisma.itemRelation.upsert({
     where: { fieldId_fromItemId_toItemId: { fieldId, fromItemId, toItemId } },
@@ -728,10 +692,11 @@ export async function removeRelation(
   const user = await requireUser()
   const item = await prisma.item.findUnique({
     where: { id: fromItemId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!item) return { error: 'Item not found' }
-  if (!item.app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, item.appId).catch(() => null)
+  if (!perms?.can('item:update')) return { error: 'Unauthorized' }
 
   await prisma.itemRelation.deleteMany({ where: { fieldId, fromItemId, toItemId } })
   revalidatePath(`/dashboard/${item.app.workspaceId}/${item.appId}/${fromItemId}`)
@@ -754,11 +719,8 @@ export async function searchItemsForRelation(
   query: string,
 ): Promise<{ items: { id: string; title: string }[] }> {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: relatedAppId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app || !app.workspace.members.some(m => m.userId === user.id)) return { items: [] }
+  const perms = await getAppPermissions(user.id, relatedAppId).catch(() => null)
+  if (!perms?.can('app:read')) return { items: [] }
 
   const items = await prisma.item.findMany({
     where: {
@@ -770,4 +732,29 @@ export async function searchItemsForRelation(
     take: 20,
   })
   return { items }
+}
+
+export async function setAppMemberRole(
+  appId: string,
+  targetUserId: string,
+  role: string | null,
+): Promise<{ success: boolean } | { error: string }> {
+  const user = await requireUser()
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:update')) return { error: 'Unauthorized' }
+
+  if (role === null) {
+    // Remove app-level override
+    await prisma.appMember.deleteMany({ where: { appId, userId: targetUserId } })
+  } else {
+    if (!['owner', 'admin', 'member', 'viewer'].includes(role)) return { error: 'Invalid role' }
+    await prisma.appMember.upsert({
+      where: { appId_userId: { appId, userId: targetUserId } },
+      update: { role },
+      create: { appId, userId: targetUserId, role },
+    })
+  }
+
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
+  return { success: true }
 }

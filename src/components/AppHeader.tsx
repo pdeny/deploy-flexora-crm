@@ -7,6 +7,7 @@ import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
 import type { FilterRule } from '@/lib/filters'
+import type { PermissionMap } from '@/lib/permissions'
 import ViewToggle from '@/components/ViewToggle'
 import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 import FilterBar from '@/components/FilterBar'
@@ -70,6 +71,7 @@ type Props = {
   sortDir: 'asc' | 'desc'
   items?: ItemForExport[]
   workspaceApps?: { id: string; name: string; iconEmoji: string; fieldsJson?: string }[]
+  can?: PermissionMap
 }
 
 function exportToCSV(items: ItemForExport[], fields: AppField[], appName: string) {
@@ -117,6 +119,7 @@ export default function AppHeader({
   sortDir,
   items = [],
   workspaceApps = [],
+  can = {},
 }: Props) {
   const { t } = useT()
   const router = useRouter()
@@ -523,13 +526,13 @@ export default function AppHeader({
               }}>{filterRules.length}</span>
             )}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowFields(true)}>
+          {can['app:update'] && <button className="btn btn-secondary btn-sm" onClick={() => setShowFields(true)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
             </svg>
             {t('header.fields')}
-          </button>
-          <button
+          </button>}
+          {can['app:manageShare'] && <button
             className="btn btn-secondary btn-sm btn-icon"
             title="Share app (public link)"
             onClick={() => setShowShare(true)}
@@ -542,13 +545,13 @@ export default function AppHeader({
             {app.shareToken && (
               <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} />
             )}
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAddItem(true)}>
+          </button>}
+          {can['item:create'] && <button className="btn btn-primary btn-sm" onClick={() => setShowAddItem(true)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             {t('header.addItem')}
-          </button>
+          </button>}
 
           {/* More menu */}
           <div ref={moreRef} style={{ position: 'relative' }}>
@@ -563,13 +566,13 @@ export default function AppHeader({
             </button>
             {showMore && (
               <div className="app-more-menu">
-                <button className="app-more-item" onClick={() => { setShowMore(false); setEditName(app.name); setEditDesc(app.description ?? ''); setEditEmoji(app.iconEmoji); setEditColor(app.color); setShowEditApp(true) }}>
+                {can['app:update'] && <button className="app-more-item" onClick={() => { setShowMore(false); setEditName(app.name); setEditDesc(app.description ?? ''); setEditEmoji(app.iconEmoji); setEditColor(app.color); setShowEditApp(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                   {t('header.editApp')}
-                </button>
+                </button>}
                 <button className="app-more-item" onClick={() => { setShowMore(false); exportToCSV(items, fields, app.name) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -578,21 +581,21 @@ export default function AppHeader({
                   </svg>
                   {t('header.exportCSV')}
                 </button>
-                <button className="app-more-item" onClick={() => { setShowMore(false); setCsvText(''); setCsvPreview(null); setCsvMapping({}); setCsvImportResult(null); setShowImportCSV(true) }}>
+                {can['item:create'] && <button className="app-more-item" onClick={() => { setShowMore(false); setCsvText(''); setCsvPreview(null); setCsvMapping({}); setCsvImportResult(null); setShowImportCSV(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                   </svg>
                   {t('header.importCSV')}
-                </button>
-                <button className="app-more-item" onClick={() => { setShowMore(false); router.push(`/dashboard/${workspaceId}/${app.id}/automations`) }}>
+                </button>}
+                {can['app:manageAutomations'] && <button className="app-more-item" onClick={() => { setShowMore(false); router.push(`/dashboard/${workspaceId}/${app.id}/automations`) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                   </svg>
                   {t('header.automations')}
-                </button>
-                <button className="app-more-item" onClick={() => { setShowMore(false); setShowForm(true) }}>
+                </button>}
+                {can['app:manageShare'] && <button className="app-more-item" onClick={() => { setShowMore(false); setShowForm(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <rect x="3" y="5" width="18" height="14" rx="2"/>
                     <path d="M7 9h10M7 13h5"/>
@@ -606,8 +609,8 @@ export default function AppHeader({
                       border: '1px solid rgba(16,185,129,0.2)',
                     }}>{t('header.live')}</span>
                   )}
-                </button>
-                <button className="app-more-item" onClick={() => { setShowMore(false); setShowColorRules(true) }}>
+                </button>}
+                {can['app:update'] && <button className="app-more-item" onClick={() => { setShowMore(false); setShowColorRules(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <circle cx="12" cy="12" r="10"/>
                     <path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 0 12 2"/>
@@ -622,8 +625,8 @@ export default function AppHeader({
                       </span>
                     ) : null
                   })()}
-                </button>
-                <button className="app-more-item" onClick={() => {
+                </button>}
+                {can['app:duplicate'] && <button className="app-more-item" onClick={() => {
                   setShowMore(false)
                   startEdit(async () => {
                     const result = await duplicateApp(app.id)
@@ -636,7 +639,8 @@ export default function AppHeader({
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                   </svg>
                   {t('header.duplicateApp')}
-                </button>
+                </button>}
+                {can['app:delete'] && <>
                 <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
                 <button className="app-more-item danger" onClick={() => { setShowMore(false); setDeleteConfirmName(''); setShowDeleteConfirm(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -645,6 +649,7 @@ export default function AppHeader({
                   </svg>
                   {t('header.deleteApp')}…
                 </button>
+                </>}
               </div>
             )}
           </div>

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace, setWorkspaceNotifications } from '@/lib/actions/settings'
 import { useT } from '@/contexts/LanguageContext'
 import { Avatar } from '@/components/Avatar'
+import type { PermissionMap } from '@/lib/permissions'
 
 type MemberRow = {
   id: string
@@ -25,6 +26,7 @@ type Props = {
   currentUserId: string
   currentUserRole: string
   currentUserNotificationsEnabled: boolean
+  can?: PermissionMap
 }
 
 const EMOJI_OPTIONS = ['🏢','🏠','🚀','💡','🎯','🔥','⭐','🌍','🎨','🛠','📊','💼','🤝','🎓','🌱']
@@ -32,7 +34,7 @@ const COLOR_OPTIONS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b98
 
 type Tab = 'general' | 'members' | 'danger'
 
-export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserRole, currentUserNotificationsEnabled }: Props) {
+export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserNotificationsEnabled, can = {} }: Props) {
   const [tab, setTab] = useState<Tab>('general')
 
   // Notification preference
@@ -67,7 +69,10 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
   const [isDeleting, startDelete] = useTransition()
   const [deleteError, setDeleteError] = useState('')
 
-  const isOwner = currentUserRole === 'owner'
+  const canManageMembers = can['workspace:inviteMembers'] ?? false
+  const canEdit = can['workspace:update'] ?? false
+  const canDelete = can['workspace:delete'] ?? false
+  const canManageRoles = can['workspace:manageRoles'] ?? false
   const { t } = useT()
 
   function saveGeneral() {
@@ -229,12 +234,12 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
             {generalSuccess && <p style={{ fontSize: 12, color: 'var(--success)' }}>{t('wsSettings.savedOk')}</p>}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" onClick={saveGeneral} disabled={isSavingGeneral || !isOwner}>
+              <button className="btn btn-primary" onClick={saveGeneral} disabled={isSavingGeneral || !canEdit}>
                 {isSavingGeneral ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('wsSettings.saving')}</> : t('wsSettings.saveChanges')}
               </button>
             </div>
 
-            {!isOwner && <p style={{ fontSize: 12, color: 'var(--text-disabled)', marginTop: 8 }}>{t('wsSettings.ownerOnly')}</p>}
+            {!canEdit && <p style={{ fontSize: 12, color: 'var(--text-disabled)', marginTop: 8 }}>{t('wsSettings.ownerOnly')}</p>}
           </div>
         </div>
       )}
@@ -242,7 +247,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
       {/* ── Members ── */}
       {tab === 'members' && (
         <div className="settings-panel">
-          {isOwner && (
+          {canManageMembers && (
             <div className="settings-section">
               <h2 className="settings-section-title">{t('wsSettings.inviteMember')}</h2>
               <form onSubmit={handleInvite} style={{ display: 'flex', gap: 10 }}>
@@ -273,7 +278,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{m.user.name ?? m.user.email}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{m.user.email}</div>
                   </div>
-                  {isOwner && m.user.id !== currentUserId ? (
+                  {canManageRoles && m.user.id !== currentUserId && m.role !== 'owner' ? (
                     <select
                       className="form-input form-select"
                       style={{ width: 'auto', padding: '4px 28px 4px 8px', fontSize: 12 }}
@@ -281,6 +286,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                       onChange={e => handleRoleChange(m.user.id, e.target.value)}
                       disabled={memberAction !== undefined && false}
                     >
+                      <option value="viewer">{t('wsSettings.roleViewer')}</option>
                       <option value="member">{t('wsSettings.roleMember')}</option>
                       <option value="admin">{t('wsSettings.roleAdmin')}</option>
                     </select>
@@ -293,7 +299,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                       textTransform: 'capitalize',
                     }}>{m.role}</span>
                   )}
-                  {isOwner && m.user.id !== currentUserId && m.role !== 'owner' && (
+                  {canManageMembers && m.user.id !== currentUserId && m.role !== 'owner' && (
                     <button
                       className="btn btn-ghost btn-sm btn-icon"
                       onClick={() => handleRemove(m.user.id)}
@@ -323,7 +329,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
               {t('wsSettings.deleteWsDesc', { name: workspace.name })}
             </p>
 
-            {isOwner ? (
+            {canDelete ? (
               <>
                 <div className="form-group" style={{ marginBottom: 16 }}>
                   <label className="form-label">{t('wsSettings.confirmType', { name: workspace.name })}</label>

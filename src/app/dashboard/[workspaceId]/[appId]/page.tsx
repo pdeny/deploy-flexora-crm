@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
+import { getAppPermissions, toPermissionMap } from '@/lib/permissions'
 import AppHeader from '@/components/AppHeader'
 import ItemsTable from '@/components/ItemsTable'
 import KanbanBoard from '@/components/KanbanBoard'
@@ -45,8 +46,9 @@ export default async function AppPage({
   ])
   if (!app || app.workspaceId !== workspaceId) notFound()
 
-  const isMember = app.workspace.members.some(m => m.userId === user.id)
-  if (!isMember) redirect('/dashboard')
+  let perms
+  try { perms = await getAppPermissions(user.id, appId) } catch { redirect('/dashboard') }
+  const can = toPermissionMap(perms)
 
   const fields: AppField[] = JSON.parse(app.fieldsJson)
 
@@ -136,9 +138,10 @@ export default async function AppPage({
         sortDir={sortDir}
         items={finalItems}
         workspaceApps={workspaceApps}
+        can={can}
       />
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {view === 'table' && <ItemsTable app={app} items={finalItems} fields={fields} workspaceId={workspaceId} userId={user.id} canReorder={!sortField} relationsMap={relationsMap} />}
+        {view === 'table' && <ItemsTable app={app} items={finalItems} fields={fields} workspaceId={workspaceId} userId={user.id} canReorder={!sortField} relationsMap={relationsMap} can={can} />}
         {view === 'kanban' && <KanbanBoard app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
         {view === 'gallery' && <GalleryView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
         {view === 'calendar' && <CalendarView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}

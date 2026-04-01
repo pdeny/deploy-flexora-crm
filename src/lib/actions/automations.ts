@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { filterNotifiable } from '@/lib/notifPrefs'
+import { getAppPermissions } from '@/lib/permissions'
 import type { AutomationTrigger, AutomationAction } from '@/lib/types'
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -13,12 +14,8 @@ export async function createAutomation(
   data: { name: string; trigger: AutomationTrigger; actions: AutomationAction[] },
 ) {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:manageAutomations')) return { error: 'Unauthorized' }
   if (!data.name.trim()) return { error: 'Name is required' }
 
   const automation = await prisma.automation.create({
@@ -30,7 +27,7 @@ export async function createAutomation(
     },
   })
 
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}/automations`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}/automations`)
   return { automation }
 }
 
@@ -41,10 +38,11 @@ export async function updateAutomation(
   const user = await requireUser()
   const automation = await prisma.automation.findUnique({
     where: { id: automationId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!automation) return { error: 'Automation not found' }
-  if (!automation.app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, automation.appId).catch(() => null)
+  if (!perms?.can('app:manageAutomations')) return { error: 'Unauthorized' }
 
   await prisma.automation.update({
     where: { id: automationId },
@@ -64,10 +62,11 @@ export async function deleteAutomation(automationId: string) {
   const user = await requireUser()
   const automation = await prisma.automation.findUnique({
     where: { id: automationId },
-    include: { app: { include: { workspace: { include: { members: true } } } } },
+    include: { app: true },
   })
   if (!automation) return { error: 'Automation not found' }
-  if (!automation.app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, automation.appId).catch(() => null)
+  if (!perms?.can('app:manageAutomations')) return { error: 'Unauthorized' }
 
   await prisma.automation.delete({ where: { id: automationId } })
   revalidatePath(`/dashboard/${automation.app.workspaceId}/${automation.appId}/automations`)

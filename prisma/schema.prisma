@@ -29,6 +29,7 @@ model User {
   activityLogs     ActivityLog[]
   apiKeys          ApiKey[]
   messages         Message[]
+  appMemberships   AppMember[]
 }
 
 model Session {
@@ -89,6 +90,7 @@ model App {
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   items       Item[]
   automations Automation[]
+  appMembers  AppMember[]
 }
 
 model Item {
@@ -215,4 +217,18 @@ model Message {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+}
+
+model AppMember {
+  id        String   @id @default(cuid())
+  appId     String
+  userId    String
+  role      String   // 'owner' | 'admin' | 'member' | 'viewer'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  app  App  @relation(fields: [appId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, userId])
 }

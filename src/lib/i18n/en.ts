@@ -333,6 +333,7 @@ export const en: LangDict = {
   'wsSettings.currentMembers': 'Current Members',
   'wsSettings.roleMember': 'Member',
   'wsSettings.roleAdmin': 'Admin',
+  'wsSettings.roleViewer': 'Viewer',
   'wsSettings.removeMember': 'Remove member',
   'wsSettings.deleteWs': 'Delete Workspace',
   'wsSettings.deleteWsDesc': 'This will permanently delete {name} and all its apps, items, comments, and tasks. This action cannot be undone.',

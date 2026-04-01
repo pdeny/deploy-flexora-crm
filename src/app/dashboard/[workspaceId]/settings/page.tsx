@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
+import { getWorkspacePermissions, toPermissionMap } from '@/lib/permissions'
 import WorkspaceSettings from '@/components/WorkspaceSettings'
 import ApiKeysPanel from '@/components/ApiKeysPanel'
 import SettingsPageHeader from './SettingsPageHeader'
@@ -26,6 +27,10 @@ export default async function SettingsPage({
 
   const currentMember = workspace.members.find(m => m.userId === user.id)
   if (!currentMember) redirect('/dashboard')
+
+  let wsPerms
+  try { wsPerms = await getWorkspacePermissions(user.id, workspaceId) } catch { redirect('/dashboard') }
+  const can = toPermissionMap(wsPerms)
 
   return (
     <div className="page-body">
@@ -53,6 +58,7 @@ export default async function SettingsPage({
         currentUserId={user.id}
         currentUserRole={currentMember.role}
         currentUserNotificationsEnabled={currentMember.notificationsEnabled}
+        can={can}
       />
 
       <div style={{ maxWidth: 680, marginTop: 32 }}>

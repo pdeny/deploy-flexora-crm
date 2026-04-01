@@ -7,6 +7,7 @@ import CreateAppButton from '@/components/CreateAppButton'
 import { duplicateApp } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
 import { useT } from '@/contexts/LanguageContext'
+import type { PermissionMap } from '@/lib/permissions'
 
 type AppSummary = {
   id: string
@@ -45,6 +46,7 @@ type Props = {
   doneTasks: number
   totalTasks: number
   taskCompletionPct: number | null
+  can?: PermissionMap
 }
 
 export default function WorkspaceContent({
@@ -58,6 +60,7 @@ export default function WorkspaceContent({
   doneTasks,
   totalTasks,
   taskCompletionPct,
+  can = {},
 }: Props) {
   const { t } = useT()
   const router = useRouter()
@@ -94,7 +97,7 @@ export default function WorkspaceContent({
           {workspaceDescription && <p className="page-subtitle">{workspaceDescription}</p>}
         </div>
         <div className="page-header-actions">
-          <CreateAppButton workspaceId={workspaceId} />
+          {can['app:create'] && <CreateAppButton workspaceId={workspaceId} />}
         </div>
       </div>
 
@@ -203,7 +206,7 @@ export default function WorkspaceContent({
                       <span className="app-emoji">{app.iconEmoji}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button
+                      {can['app:duplicate'] && <button
                         className="app-dup-btn"
                         title={t('ws.duplicateApp')}
                         onClick={(e) => handleDuplicateApp(e, app.id)}
@@ -216,7 +219,7 @@ export default function WorkspaceContent({
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                           </svg>
                         )}
-                      </button>
+                      </button>}
                       <div className="app-item-count">{t('ws.itemCount', { n: app.itemCount })}</div>
                     </div>
                   </div>

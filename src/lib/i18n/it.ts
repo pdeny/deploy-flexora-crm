@@ -331,6 +331,7 @@ export const it = {
   'wsSettings.currentMembers': 'Membri attuali',
   'wsSettings.roleMember': 'Membro',
   'wsSettings.roleAdmin': 'Amministratore',
+  'wsSettings.roleViewer': 'Visualizzatore',
   'wsSettings.removeMember': 'Rimuovi membro',
   'wsSettings.deleteWs': 'Elimina Workspace',
   'wsSettings.deleteWsDesc': 'Questo eliminerà definitivamente {name} e tutte le sue app, elementi, commenti e attività. Questa azione non può essere annullata.',

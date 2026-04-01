@@ -7,22 +7,15 @@ import { redirect } from 'next/navigation'
 import { randomBytes } from 'crypto'
 import { headers } from 'next/headers'
 import { rateLimit } from '@/lib/rate-limit'
-
-async function requireOwner(workspaceId: string) {
-  const user = await requireUser()
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-  })
-  if (!member) throw new Error('Not a member')
-  return { user, member }
-}
+import { getWorkspacePermissions, getAppPermissions } from '@/lib/permissions'
 
 export async function updateWorkspace(
   workspaceId: string,
   data: { name?: string; description?: string; iconEmoji?: string; color?: string },
 ) {
-  const { member } = await requireOwner(workspaceId)
-  if (member.role !== 'owner') return { error: 'Only owners can edit workspace settings' }
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:update')) return { error: 'Unauthorized' }
 
   if (data.name !== undefined && !data.name.trim()) return { error: 'Name is required' }
 
@@ -41,8 +34,9 @@ export async function updateWorkspace(
 }
 
 export async function inviteMember(workspaceId: string, email: string) {
-  const { member } = await requireOwner(workspaceId)
-  if (member.role !== 'owner' && member.role !== 'admin') return { error: 'Only owners can invite members' }
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:inviteMembers')) return { error: 'Unauthorized' }
 
   const invitee = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } })
   if (!invitee) return { error: 'No user found with that email address' }
@@ -71,8 +65,9 @@ export async function inviteMember(workspaceId: string, email: string) {
 }
 
 export async function removeMember(workspaceId: string, targetUserId: string) {
-  const { user, member } = await requireOwner(workspaceId)
-  if (member.role !== 'owner') return { error: 'Only owners can remove members' }
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:removeMembers')) return { error: 'Unauthorized' }
   if (targetUserId === user.id) return { error: 'You cannot remove yourself' }
 
   const target = await prisma.workspaceMember.findUnique({
@@ -90,11 +85,12 @@ export async function removeMember(workspaceId: string, targetUserId: string) {
 }
 
 export async function updateMemberRole(workspaceId: string, targetUserId: string, role: string) {
-  const { user, member } = await requireOwner(workspaceId)
-  if (member.role !== 'owner') return { error: 'Only owners can change roles' }
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:manageRoles')) return { error: 'Unauthorized' }
   if (targetUserId === user.id) return { error: 'You cannot change your own role' }
 
-  if (!['member', 'admin'].includes(role)) return { error: 'Invalid role' }
+  if (!['member', 'admin', 'viewer'].includes(role)) return { error: 'Invalid role' }
 
   await prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId: targetUserId } },
@@ -107,10 +103,8 @@ export async function updateMemberRole(workspaceId: string, targetUserId: string
 
 export async function setWorkspaceNotifications(workspaceId: string, enabled: boolean) {
   const user = await requireUser()
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-  })
-  if (!member) return { error: 'Not a member' }
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:read')) return { error: 'Unauthorized' }
 
   await prisma.workspaceMember.update({
     where: { workspaceId_userId: { workspaceId, userId: user.id } },
@@ -122,8 +116,9 @@ export async function setWorkspaceNotifications(workspaceId: string, enabled: bo
 }
 
 export async function deleteWorkspace(workspaceId: string) {
-  const { member } = await requireOwner(workspaceId)
-  if (member.role !== 'owner') return { error: 'Only owners can delete the workspace' }
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:delete')) return { error: 'Unauthorized' }
 
   await prisma.workspace.delete({ where: { id: workspaceId } })
 
@@ -133,30 +128,22 @@ export async function deleteWorkspace(workspaceId: string) {
 
 export async function generateShareLink(appId: string): Promise<{ token: string } | { error: string }> {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:manageShare')) return { error: 'Unauthorized' }
 
   const token = randomBytes(12).toString('base64url')
   await prisma.app.update({ where: { id: appId }, data: { shareToken: token } })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { token }
 }
 
 export async function revokeShareLink(appId: string): Promise<{ success: boolean } | { error: string }> {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:manageShare')) return { error: 'Unauthorized' }
 
   await prisma.app.update({ where: { id: appId }, data: { shareToken: null } })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { success: true }
 }
 
@@ -174,33 +161,28 @@ export async function saveFormConfig(
   config: FormConfig,
 ): Promise<{ token: string } | { error: string }> {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:manageShare')) return { error: 'Unauthorized' }
+
+  const app = await prisma.app.findUnique({ where: { id: appId } })
   if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
 
   const token = app.formToken ?? randomBytes(12).toString('base64url')
   await prisma.app.update({
     where: { id: appId },
     data: { formToken: token, formFieldsJson: JSON.stringify(config) },
   })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { token }
 }
 
 export async function revokeFormLink(appId: string): Promise<{ success: boolean } | { error: string }> {
   const user = await requireUser()
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { workspace: { include: { members: true } } },
-  })
-  if (!app) return { error: 'App not found' }
-  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (!perms?.can('app:manageShare')) return { error: 'Unauthorized' }
 
   await prisma.app.update({ where: { id: appId }, data: { formToken: null, formFieldsJson: '{}' } })
-  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  revalidatePath(`/dashboard/${perms.workspaceId}/${appId}`)
   return { success: true }
 }
 

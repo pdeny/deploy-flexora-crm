@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useTransition, useRef } from 'react'
 import type { AppField, ColorRule } from '@/lib/types'
+import type { PermissionMap } from '@/lib/permissions'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
 import { deleteItem, duplicateItem, updateItem, bulkDeleteItems, bulkUpdateField, reorderItems } from '@/lib/actions/workspace'
@@ -29,6 +30,7 @@ type Props = {
   canReorder?: boolean
   /** itemId → fieldId → linked items (title + id) */
   relationsMap?: Record<string, Record<string, { id: string; title: string }[]>>
+  can?: PermissionMap
 }
 
 type ContextMenu = {
@@ -613,7 +615,9 @@ function BulkToolbar({
 
 // ─── Main table ───────────────────────────────────────────────────────────────
 
-export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false, canReorder = false, relationsMap = {} }: Props) {
+export default function ItemsTable({ app, items, fields, workspaceId, readOnly: readOnlyProp = false, canReorder = false, relationsMap = {}, can = {} }: Props) {
+  // If can map is provided and user can't update items, force read-only
+  const readOnly = readOnlyProp || (Object.keys(can).length > 0 && !can['item:update'])
   const { t } = useT()
   const router = useRouter()
   const [localItems, setLocalItems] = useState<ItemRow[]>(items)
@@ -1127,7 +1131,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
             </svg>
             {t('table.openItem')}
           </button>
-          <button
+          {can['item:create'] !== false && <button
             className="context-menu-item"
             onClick={() => handleDuplicate(contextMenu.itemId)}
             disabled={isPending}
@@ -1136,7 +1140,8 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
             {t('table.duplicate')}
-          </button>
+          </button>}
+          {can['item:delete'] !== false && <>
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
           {confirmDelete === contextMenu.itemId ? (
             <div style={{ padding: '6px 10px' }}>
@@ -1155,6 +1160,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               {t('common.delete')}…
             </button>
           )}
+          </>}
         </div>
       )}
 

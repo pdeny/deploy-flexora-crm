@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { randomBytes, createHash } from 'crypto'
+import { getWorkspacePermissions } from '@/lib/permissions'
 
 function hashKey(key: string): string {
   return createHash('sha256').update(key).digest('hex')
@@ -11,10 +12,8 @@ function hashKey(key: string): string {
 
 export async function listApiKeys(workspaceId: string) {
   const user = await requireUser()
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-  })
-  if (!member) return { error: 'Unauthorized' }
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:manageApiKeys')) return { error: 'Unauthorized' }
 
   const keys = await prisma.apiKey.findMany({
     where: { workspaceId },
@@ -26,10 +25,8 @@ export async function listApiKeys(workspaceId: string) {
 
 export async function createApiKey(workspaceId: string, name: string): Promise<{ key: string; prefix: string; id: string } | { error: string }> {
   const user = await requireUser()
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-  })
-  if (!member) return { error: 'Unauthorized' }
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:manageApiKeys')) return { error: 'Unauthorized' }
   if (!name.trim()) return { error: 'Name is required' }
 
   const raw = 'flx_' + randomBytes(24).toString('base64url')
@@ -48,10 +45,8 @@ export async function deleteApiKey(keyId: string): Promise<{ success: boolean } 
   const key = await prisma.apiKey.findUnique({ where: { id: keyId } })
   if (!key) return { error: 'Not found' }
 
-  const member = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId: key.workspaceId, userId: user.id } },
-  })
-  if (!member) return { error: 'Unauthorized' }
+  const perms = await getWorkspacePermissions(user.id, key.workspaceId).catch(() => null)
+  if (!perms?.can('workspace:manageApiKeys')) return { error: 'Unauthorized' }
 
   await prisma.apiKey.delete({ where: { id: keyId } })
   revalidatePath(`/dashboard/${key.workspaceId}/settings`)

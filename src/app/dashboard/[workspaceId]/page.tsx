@@ -1,6 +1,7 @@
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
+import { getWorkspacePermissions, toPermissionMap } from '@/lib/permissions'
 import WorkspaceContent from './WorkspaceContent'
 
 export default async function WorkspacePage({
@@ -22,8 +23,9 @@ export default async function WorkspacePage({
   })
   if (!workspace) notFound()
 
-  const isMember = workspace.members.some(m => m.userId === user.id)
-  if (!isMember) redirect('/dashboard')
+  let wsPerms
+  try { wsPerms = await getWorkspacePermissions(user.id, workspaceId) } catch { redirect('/dashboard') }
+  const can = toPermissionMap(wsPerms)
 
   const [recentItems, taskStats] = await Promise.all([
     prisma.item.findMany({
@@ -75,6 +77,7 @@ export default async function WorkspacePage({
       doneTasks={doneTasks}
       totalTasks={totalTasks}
       taskCompletionPct={taskCompletionPct}
+      can={can}
     />
   )
 }
