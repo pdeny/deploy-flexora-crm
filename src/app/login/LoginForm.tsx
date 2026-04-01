@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { login } from '@/lib/actions/auth'
+import { useT } from '@/contexts/LanguageContext'
 
 export default function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { t } = useT()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,31 +31,31 @@ export default function LoginForm() {
       )}
 
       <div className="lf-field">
-        <label className="lf-label" htmlFor="lf-email">Email</label>
+        <label className="lf-label" htmlFor="lf-email">{t('auth.email')}</label>
         <div className="lf-input-wrap">
           <svg className="lf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
           </svg>
-          <input id="lf-email" className="lf-input" type="email" name="email" placeholder="you@company.com" required autoComplete="email" />
+          <input id="lf-email" className="lf-input" type="email" name="email" placeholder={t('auth.emailPlaceholder')} required autoComplete="email" />
         </div>
       </div>
 
       <div className="lf-field">
-        <label className="lf-label" htmlFor="lf-password">Password</label>
+        <label className="lf-label" htmlFor="lf-password">{t('auth.password')}</label>
         <div className="lf-input-wrap">
           <svg className="lf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <input id="lf-password" className="lf-input" type="password" name="password" placeholder="Your password" required autoComplete="current-password" />
+          <input id="lf-password" className="lf-input" type="password" name="password" placeholder={t('auth.passwordPlaceholder')} required autoComplete="current-password" />
         </div>
       </div>
 
       <button type="submit" className="lf-btn" disabled={isPending}>
         {isPending ? (
-          <><span className="lf-spinner" /> Signing in…</>
+          <><span className="lf-spinner" /> {t('auth.signingIn')}</>
         ) : (
           <>
-            Sign in to Flexora
+            {t('auth.signIn')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>

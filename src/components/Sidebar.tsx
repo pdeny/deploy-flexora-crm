@@ -6,10 +6,12 @@ import { logout } from '@/lib/actions/auth'
 import type { Workspace, User } from '@/generated/prisma'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useT } from '@/contexts/LanguageContext'
 
 export default function Sidebar({ user, workspaces }: { user: User; workspaces: Workspace[] }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useT()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -43,12 +45,12 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
           className={`sidebar-link ${pathname === '/dashboard' ? 'active' : ''}`}
         >
           <span className="link-icon" style={{ fontSize: 15 }}>⊞</span>
-          All Workspaces
+          {t('sidebar.allWorkspaces')}
         </Link>
 
         {workspaces.length > 0 && (
           <>
-            <div className="sidebar-section-label">Workspaces</div>
+            <div className="sidebar-section-label">{t('sidebar.workspaces')}</div>
             {workspaces.map(ws => {
               const isActive = pathname.startsWith(`/dashboard/${ws.id}`)
               return (
@@ -73,7 +75,7 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
                       </svg>
-                      <span style={{ fontSize: 12 }}>Settings</span>
+                      <span style={{ fontSize: 12 }}>{t('sidebar.settings')}</span>
                     </Link>
                   )}
                 </div>
@@ -84,7 +86,7 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-user" onClick={() => router.push('/dashboard/profile')} style={{ cursor: 'pointer' }} title="Profile & Settings">
+        <div className="sidebar-user" onClick={() => router.push('/dashboard/profile')} style={{ cursor: 'pointer' }} title={t('sidebar.profile')}>
           <div className="sidebar-avatar">
             {(user.name ?? user.email)[0].toUpperCase()}
           </div>
@@ -95,7 +97,7 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
           <form action={logout}>
             <button
               type="submit"
-              title="Sign out"
+              title={t('sidebar.signOut')}
               className="sidebar-logout-btn"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

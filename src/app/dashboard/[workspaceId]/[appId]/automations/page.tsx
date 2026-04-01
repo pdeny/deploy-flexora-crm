@@ -1,8 +1,8 @@
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
 import AutomationsPanel from '@/components/AutomationsPanel'
+import AutomationsBreadcrumb from './AutomationsBreadcrumb'
 import type { AppField } from '@/lib/types'
 
 export default async function AutomationsPage({
@@ -31,22 +31,13 @@ export default async function AutomationsPage({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Breadcrumb bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '12px 32px',
-        borderBottom: '1px solid var(--border-subtle)', fontSize: 13,
-        color: 'var(--text-tertiary)', flexShrink: 0,
-      }}>
-        <Link href={`/dashboard/${workspaceId}`} style={{ color: 'var(--text-tertiary)', textDecoration: 'none' }}>
-          {app.workspace.name}
-        </Link>
-        <span>/</span>
-        <Link href={`/dashboard/${workspaceId}/${appId}`} style={{ color: 'var(--text-tertiary)', textDecoration: 'none' }}>
-          {app.iconEmoji} {app.name}
-        </Link>
-        <span>/</span>
-        <span style={{ color: 'var(--text-secondary)' }}>Automations</span>
-      </div>
+      <AutomationsBreadcrumb
+        workspaceId={workspaceId}
+        appId={appId}
+        workspaceName={app.workspace.name}
+        appEmoji={app.iconEmoji}
+        appName={app.name}
+      />
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         <AutomationsPanel

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import type { AppField } from '@/lib/types'
 import { type FilterRule, type FilterOperator, operatorsForField } from '@/lib/filters'
+import { useT } from '@/contexts/LanguageContext'
 
 type Props = {
   fields: AppField[]
@@ -21,21 +22,22 @@ function FilterValueInput({
   value: unknown
   onChange: (v: unknown) => void
 }) {
+  const { t } = useT()
   const field = fields.find(f => f.id === fieldId)
   if (!field) return <input className="form-input" style={{ flex: 1 }} value={String(value ?? '')} onChange={e => onChange(e.target.value)} />
 
   if (field.type === 'toggle') {
     return (
       <select className="form-input form-select" style={{ flex: 1 }} value={String(value ?? 'true')} onChange={e => onChange(e.target.value === 'true')}>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
+        <option value="true">{t('bool.yes')}</option>
+        <option value="false">{t('bool.no')}</option>
       </select>
     )
   }
   if (field.type === 'category' && field.options) {
     return (
       <select className="form-input form-select" style={{ flex: 1 }} value={String(value ?? '')} onChange={e => onChange(e.target.value)}>
-        <option value="">Select…</option>
+        <option value="">{t('filter.select')}</option>
         {field.options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>
     )
@@ -50,6 +52,7 @@ function FilterValueInput({
 }
 
 export default function FilterBar({ fields, rules }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -114,7 +117,7 @@ export default function FilterBar({ fields, rules }: Props) {
     <div className="filter-bar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-disabled)', textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0 }}>
-          Filters
+          {t('header.filter')}
         </span>
         {rules.map(rule => (
           <div key={rule.id} className="filter-chip">
@@ -172,8 +175,8 @@ export default function FilterBar({ fields, rules }: Props) {
               </div>
             )}
 
-            <button className="btn btn-primary btn-sm" onClick={addRule} style={{ fontSize: 12 }}>Apply</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowAdd(false)} style={{ fontSize: 12 }}>Cancel</button>
+            <button className="btn btn-primary btn-sm" onClick={addRule} style={{ fontSize: 12 }}>{t('common.save')}</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowAdd(false)} style={{ fontSize: 12 }}>{t('common.cancel')}</button>
           </div>
         ) : (
           <button
@@ -184,14 +187,14 @@ export default function FilterBar({ fields, rules }: Props) {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            Add filter
+            {t('filter.add')}
           </button>
         )}
       </div>
 
       {rules.length > 0 && (
         <button className="btn btn-ghost btn-sm" onClick={clearAll} style={{ fontSize: 12, color: 'var(--error)', flexShrink: 0 }}>
-          Clear all
+          {t('filter.clearAll')}
         </button>
       )}
 

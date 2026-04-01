@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import type { AppField } from '@/lib/types'
+import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
   id: string
@@ -56,6 +57,7 @@ const BAR_COLORS = [
 ]
 
 export default function TimelineView({ app, items, fields, workspaceId }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
   const today = startOfDay(new Date())
@@ -71,6 +73,7 @@ export default function TimelineView({ app, items, fields, workspaceId }: Props)
       const todayOffset = diffDays(windowStart, today)
       scrollRef.current.scrollLeft = Math.max(0, todayOffset * DAY_WIDTH - 200)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // intentional: scroll once on mount only
 
   // If no date field, prompt to add one
@@ -78,8 +81,8 @@ export default function TimelineView({ app, items, fields, workspaceId }: Props)
     return (
       <div className="empty-state">
         <div className="empty-state-icon">📊</div>
-        <p className="empty-state-title">No date field</p>
-        <p className="empty-state-desc">Add a date field to use Timeline view. Go to Fields → Add Field → Date.</p>
+        <p className="empty-state-title">{t('empty.timeline.noDate')}</p>
+        <p className="empty-state-desc">{t('empty.timeline.noDateDesc')}</p>
       </div>
     )
   }
@@ -156,7 +159,7 @@ export default function TimelineView({ app, items, fields, workspaceId }: Props)
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
         borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', flexShrink: 0,
       }}>
-        <button className="btn btn-ghost btn-sm btn-icon" title="Previous 2 weeks"
+        <button className="btn btn-ghost btn-sm btn-icon" title={t('timeline.prev')}
           onClick={() => setWindowStart(d => addDays(d, -14))}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6"/>
@@ -172,20 +175,20 @@ export default function TimelineView({ app, items, fields, workspaceId }: Props)
               }
             }, 50)
           }}>
-          Today
+          {t('timeline.today')}
         </button>
-        <button className="btn btn-ghost btn-sm btn-icon" title="Next 2 weeks"
+        <button className="btn btn-ghost btn-sm btn-icon" title={t('timeline.next')}
           onClick={() => setWindowStart(d => addDays(d, 14))}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </button>
         <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--text-tertiary)' }}>
-          Start: <strong style={{ color: 'var(--text-secondary)' }}>{startField.name}</strong>
-          {endField && <> · End: <strong style={{ color: 'var(--text-secondary)' }}>{endField.name}</strong></>}
+          {t('timeline.start')}: <strong style={{ color: 'var(--text-secondary)' }}>{startField.name}</strong>
+          {endField && <> · {t('timeline.end')}: <strong style={{ color: 'var(--text-secondary)' }}>{endField.name}</strong></>}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-disabled)' }}>
-          {bars.length} of {items.length} items have dates
+          {t('timeline.itemsWithDates', { n: bars.length, m: items.length })}
         </span>
       </div>
 
@@ -202,7 +205,7 @@ export default function TimelineView({ app, items, fields, workspaceId }: Props)
           {/* Header placeholder to align with month/day headers */}
           <div style={{ height: 54, borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, padding: '0 14px', display: 'flex', alignItems: 'flex-end', paddingBottom: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-disabled)', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
-              Item
+              {t('timeline.item')}
             </span>
           </div>
           {/* Item rows */}

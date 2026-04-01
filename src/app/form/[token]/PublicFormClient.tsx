@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import type { AppField } from '@/lib/types'
 import type { FormConfig } from '@/lib/actions/settings'
 import { submitFormEntry } from '@/lib/actions/settings'
+import { useT } from '@/contexts/LanguageContext'
 
 type AppInfo = {
   name: string
@@ -202,6 +203,7 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
   const [isPending, startTransition] = useTransition()
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useT()
 
   function setField(id: string, value: unknown) {
     setData(prev => ({ ...prev, [id]: value }))
@@ -215,7 +217,7 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
       if (!field.required) continue
       const val = data[field.id]
       const isEmpty = val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)
-      if (isEmpty) { setError(`"${field.name}" is required`); return }
+      if (isEmpty) { setError(t('form.fieldRequired', { name: field.name })); return }
     }
     startTransition(async () => {
       const res = await submitFormEntry(token, title, JSON.stringify(data))
@@ -264,7 +266,7 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
             border: '1px solid rgba(99,102,241,0.2)',
           }}
         >
-          Powered by Flexora
+          {t('form.poweredBy')}
         </Link>
       </div>
 
@@ -291,17 +293,17 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
               </svg>
             </div>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 10px' }}>
-              Submitted!
+              {t('form.submitted')}
             </h2>
             <p style={{ fontSize: 14, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: '0 0 28px' }}>
-              Your response has been recorded. Thank you!
+              {t('form.thankYou')}
             </p>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => { setSubmitted(false); setTitle(''); setData({}) }}
             >
-              Submit another response
+              {t('form.another')}
             </button>
           </div>
         ) : (
@@ -335,14 +337,14 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
               marginBottom: 8,
             }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-                Name <span style={{ color: 'var(--error)' }}>*</span>
+                {t('form.titleField')} <span style={{ color: 'var(--error)' }}>*</span>
               </label>
               <input
                 required
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="Enter a name…"
+                placeholder={t('form.titlePlaceholder')}
                 style={{
                   width: '100%',
                   background: 'var(--bg-elevated)',
@@ -411,8 +413,8 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
                 style={{ width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 700 }}
               >
                 {isPending ? (
-                  <><span className="spinner" style={{ width: 14, height: 14 }} /> Submitting…</>
-                ) : config.submitLabel || 'Submit'}
+                  <><span className="spinner" style={{ width: 14, height: 14 }} /> {t('form.submitting')}</>
+                ) : config.submitLabel || t('common.save')}
               </button>
             </div>
           </form>

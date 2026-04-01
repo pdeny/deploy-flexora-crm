@@ -1,30 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-const SHORTCUTS = [
-  { category: 'Navigation', items: [
-    { keys: ['⌘', 'K'], label: 'Open search' },
-    { keys: ['?'], label: 'Show keyboard shortcuts' },
-    { keys: ['Esc'], label: 'Close modal / cancel' },
-  ]},
-  { category: 'Table View', items: [
-    { keys: ['Right-click'], label: 'Open row context menu' },
-    { keys: ['Click cell'], label: 'Edit cell inline' },
-    { keys: ['Enter'], label: 'Save cell edit' },
-    { keys: ['Esc'], label: 'Cancel cell edit' },
-  ]},
-  { category: 'Comments', items: [
-    { keys: ['⌘', '↵'], label: 'Submit comment' },
-    { keys: ['@name'], label: 'Mention a workspace member' },
-  ]},
-  { category: 'Item Detail', items: [
-    { keys: ['⌘', 'S'], label: 'Save changes' },
-  ]},
-]
+import { useT } from '@/contexts/LanguageContext'
 
 export default function KeyboardShortcutsModal() {
   const [open, setOpen] = useState(false)
+  const { t } = useT()
+
+  const SHORTCUTS = [
+    { category: t('shortcuts.nav'), items: [
+      { keys: ['⌘', 'K'], label: t('shortcuts.openSearch') },
+      { keys: ['?'], label: t('shortcuts.showShortcuts') },
+      { keys: ['Esc'], label: t('shortcuts.closeModal') },
+    ]},
+    { category: t('shortcuts.tableView'), items: [
+      { keys: ['Right-click'], label: t('shortcuts.contextMenu') },
+      { keys: ['Click cell'], label: t('shortcuts.editCell') },
+      { keys: ['Enter'], label: t('shortcuts.saveCell') },
+      { keys: ['Esc'], label: t('shortcuts.cancelCell') },
+    ]},
+    { category: t('shortcuts.commentsSection'), items: [
+      { keys: ['⌘', '↵'], label: t('shortcuts.submitComment') },
+      { keys: ['@name'], label: t('shortcuts.mentionMember') },
+    ]},
+    { category: t('shortcuts.itemDetailSection'), items: [
+      { keys: ['⌘', 'S'], label: t('shortcuts.saveItem') },
+    ]},
+  ]
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -47,7 +49,7 @@ export default function KeyboardShortcutsModal() {
     >
       <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Keyboard Shortcuts</h2>
+          <h2 className="modal-title">{t('shortcuts.title')}</h2>
           <button className="modal-close" onClick={() => setOpen(false)}>✕</button>
         </div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -78,7 +80,7 @@ export default function KeyboardShortcutsModal() {
           ))}
         </div>
         <div className="modal-footer" style={{ justifyContent: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>Press <kbd style={{ padding: '1px 5px', background: 'var(--bg-overlay)', border: '1px solid var(--border-default)', borderRadius: 4, fontSize: 11 }}>?</kbd> to toggle</span>
+          <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>{t('shortcuts.pressToToggle', { key: '?' })}</span>
         </div>
       </div>
     </div>

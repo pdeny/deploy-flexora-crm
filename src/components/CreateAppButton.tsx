@@ -2,14 +2,17 @@
 
 import { useState, useTransition } from 'react'
 import { createApp } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
+import type { LangKey } from '@/lib/i18n/it'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
 const EMOJIS = ['📋', '📊', '🗂️', '📁', '🏷️', '📝', '🔖', '📌', '🗃️', '⚙️', '🔍', '📈', '🎯', '💼', '🧩']
 
 type Template = {
   id: string
-  label: string
-  description: string
+  labelKey: LangKey
+  descKey: LangKey
+  defaultName: string
   emoji: string
   color: string
   fieldsJson: string
@@ -18,16 +21,18 @@ type Template = {
 const TEMPLATES: Template[] = [
   {
     id: 'blank',
-    label: 'Blank',
-    description: 'Start from scratch with no fields',
+    labelKey: 'app.tmpl.blank.name',
+    descKey: 'app.blank',
+    defaultName: '',
     emoji: '📋',
     color: '#6366f1',
     fieldsJson: '[]',
   },
   {
     id: 'crm',
-    label: 'CRM',
-    description: 'Track leads, deals and customers',
+    labelKey: 'app.tmpl.crm.name',
+    descKey: 'app.tmpl.crm',
+    defaultName: 'CRM',
     emoji: '🤝',
     color: '#10b981',
     fieldsJson: JSON.stringify([
@@ -47,8 +52,9 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'project',
-    label: 'Project Manager',
-    description: 'Tasks, status and priorities',
+    labelKey: 'app.tmpl.project.name',
+    descKey: 'app.tmpl.tasks',
+    defaultName: 'Project Manager',
     emoji: '🚀',
     color: '#6366f1',
     fieldsJson: JSON.stringify([
@@ -70,8 +76,9 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'bugs',
-    label: 'Bug Tracker',
-    description: 'Report and track software issues',
+    labelKey: 'app.tmpl.bugs.name',
+    descKey: 'app.tmpl.bugs',
+    defaultName: 'Bug Tracker',
     emoji: '🐛',
     color: '#ef4444',
     fieldsJson: JSON.stringify([
@@ -94,8 +101,9 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'hr',
-    label: 'HR Tracker',
-    description: 'Candidates, hires and onboarding',
+    labelKey: 'app.tmpl.hr.name',
+    descKey: 'app.tmpl.hiring',
+    defaultName: 'HR Tracker',
     emoji: '👥',
     color: '#8b5cf6',
     fieldsJson: JSON.stringify([
@@ -116,8 +124,9 @@ const TEMPLATES: Template[] = [
   },
   {
     id: 'content',
-    label: 'Content Calendar',
-    description: 'Plan and track content pieces',
+    labelKey: 'app.tmpl.content.name',
+    descKey: 'app.tmpl.content',
+    defaultName: 'Content Calendar',
     emoji: '📅',
     color: '#ec4899',
     fieldsJson: JSON.stringify([
@@ -139,6 +148,7 @@ const TEMPLATES: Template[] = [
 type Props = { workspaceId: string; compact?: boolean }
 
 export default function CreateAppButton({ workspaceId, compact }: Props) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<'template' | 'details'>('template')
   const [selectedTemplate, setSelectedTemplate] = useState<Template>(TEMPLATES[0])
@@ -181,18 +191,18 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
   return (
     <>
       {compact ? (
-        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)} title="New App">
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)} title={t('app.new')}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          New App
+          {t('app.new')}
         </button>
       ) : (
         <button className="btn btn-primary" onClick={() => setOpen(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          New App
+          {t('app.new')}
         </button>
       )}
 
@@ -205,7 +215,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   <button
                     className="btn btn-ghost btn-sm btn-icon"
                     onClick={() => setStep('template')}
-                    title="Back"
+                    title={t('common.back')}
                     style={{ marginRight: 2 }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -214,7 +224,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   </button>
                 )}
                 <h2 className="modal-title">
-                  {step === 'template' ? 'Choose a template' : 'Configure App'}
+                  {step === 'template' ? t('app.chooseTemplate') : t('app.configure')}
                 </h2>
               </div>
               <button className="btn btn-ghost btn-icon" onClick={handleClose} aria-label="Close">
@@ -237,8 +247,8 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                       <div className="template-emoji" style={{ background: tpl.color + '20', border: `1px solid ${tpl.color}33` }}>
                         {tpl.emoji}
                       </div>
-                      <div className="template-label">{tpl.label}</div>
-                      <div className="template-desc">{tpl.description}</div>
+                      <div className="template-label">{t(tpl.labelKey)}</div>
+                      <div className="template-desc">{t(tpl.descKey)}</div>
                     </button>
                   ))}
                 </div>
@@ -250,11 +260,11 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: selectedTemplate.color + '15', border: `1px solid ${selectedTemplate.color}30`, borderRadius: 8 }}>
                     <span style={{ fontSize: 16 }}>{selectedTemplate.emoji}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: selectedTemplate.color }}>
-                      {selectedTemplate.label} template
+                      {t(selectedTemplate.labelKey)} {t('app.tmpl.templateSuffix')}
                     </span>
                     {selectedTemplate.id !== 'blank' && (
                       <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>
-                        {JSON.parse(selectedTemplate.fieldsJson).length} fields pre-configured
+                        {t('app.fieldsPreConfigured', { n: JSON.parse(selectedTemplate.fieldsJson).length })}
                       </span>
                     )}
                   </div>
@@ -266,7 +276,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   )}
 
                   <div className="form-group">
-                    <label className="form-label">Icon</label>
+                    <label className="form-label">{t('common.icon')}</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                       {EMOJIS.map(e => (
                         <button key={e} type="button" onClick={() => setEmoji(e)} style={{
@@ -280,26 +290,26 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" htmlFor="app-name">Name <span style={{ color: 'var(--error)' }}>*</span></label>
+                    <label className="form-label" htmlFor="app-name">{t('common.name')} <span style={{ color: 'var(--error)' }}>*</span></label>
                     <input
                       id="app-name" className="form-input" name="name"
-                      defaultValue={selectedTemplate.id !== 'blank' ? selectedTemplate.label : ''}
-                      placeholder="e.g. CRM, Tasks, Projects"
+                      defaultValue={selectedTemplate.defaultName}
+                      placeholder={t('app.namePlaceholder')}
                       required autoFocus
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" htmlFor="app-desc">Description</label>
+                    <label className="form-label" htmlFor="app-desc">{t('common.description')}</label>
                     <input
                       id="app-desc" className="form-input" name="description"
-                      defaultValue={selectedTemplate.id !== 'blank' ? selectedTemplate.description : ''}
-                      placeholder="What does this app track?"
+                      defaultValue={selectedTemplate.id !== 'blank' ? t(selectedTemplate.descKey) : ''}
+                      placeholder={t('app.descPlaceholder')}
                     />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Color</label>
+                    <label className="form-label">{t('common.color')}</label>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {COLORS.map(c => (
                         <button key={c} type="button" onClick={() => setColor(c)} style={{
@@ -314,9 +324,9 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                 </div>
 
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={handleClose}>Cancel</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleClose}>{t('common.cancel')}</button>
                   <button type="submit" className="btn btn-primary" disabled={isPending}>
-                    {isPending ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Creating…</> : 'Create App'}
+                    {isPending ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('common.creating')}</> : t('app.create')}
                   </button>
                 </div>
               </form>

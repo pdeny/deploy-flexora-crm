@@ -2,10 +2,12 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
+import { useT } from '@/contexts/LanguageContext'
 
 type View = 'table' | 'kanban' | 'gallery' | 'calendar' | 'timeline'
 
 export default function ViewToggle({ currentView }: { currentView: View }) {
+  const { t } = useT()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -19,7 +21,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
   const views: { id: View; label: string; icon: React.ReactNode }[] = [
     {
       id: 'table',
-      label: 'Table',
+      label: t('view.table'),
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -31,7 +33,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
     },
     {
       id: 'kanban',
-      label: 'Kanban',
+      label: t('view.kanban'),
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <rect x="3" y="3" width="5" height="18" rx="1"/>
@@ -42,7 +44,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
     },
     {
       id: 'gallery',
-      label: 'Gallery',
+      label: t('view.gallery'),
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <rect x="3" y="3" width="7" height="7" rx="1"/>
@@ -54,7 +56,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
     },
     {
       id: 'calendar',
-      label: 'Calendar',
+      label: t('view.calendar'),
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -66,7 +68,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
     },
     {
       id: 'timeline',
-      label: 'Timeline',
+      label: t('view.timeline'),
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="3" y1="12" x2="21" y2="12"/>

@@ -3,6 +3,7 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import type { AppField } from '@/lib/types'
+import { useT } from '@/contexts/LanguageContext'
 
 type Props = {
   fields: AppField[]
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export default function SortDropdown({ fields, sortField, sortDir }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -53,7 +55,7 @@ export default function SortDropdown({ fields, sortField, sortDir }: Props) {
         <button
           className={`btn btn-secondary btn-sm btn-icon`}
           onClick={() => setSort(sortField, sortDir === 'asc' ? 'desc' : 'asc')}
-          title={sortDir === 'asc' ? 'Ascending — click to reverse' : 'Descending — click to reverse'}
+          title={sortDir === 'asc' ? t('sort.asc') : t('sort.desc')}
           style={{ fontSize: 12 }}
         >
           {sortDir === 'asc' ? (
@@ -72,7 +74,7 @@ export default function SortDropdown({ fields, sortField, sortDir }: Props) {
         <button
           className="btn btn-ghost btn-sm btn-icon"
           onClick={() => setSort('', 'asc')}
-          title="Clear sort"
+          title={t('sort.clear')}
           style={{ color: 'var(--text-disabled)', fontSize: 12 }}
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

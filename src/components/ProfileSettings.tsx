@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateProfile, changePassword } from '@/lib/actions/profile'
+import { useT } from '@/contexts/LanguageContext'
 
 type Props = {
   user: { id: string; name: string | null; email: string }
@@ -22,25 +23,27 @@ export default function ProfileSettings({ user }: Props) {
 
   const [tab, setTab] = useState<'profile' | 'password'>('profile')
 
+  const { t } = useT()
+
   function saveProfile() {
     setProfileMsg(null)
     startSaveProfile(async () => {
       const result = await updateProfile({ name })
       if (result?.error) setProfileMsg({ type: 'err', text: result.error })
-      else setProfileMsg({ type: 'ok', text: 'Profile updated successfully!' })
+      else setProfileMsg({ type: 'ok', text: t('profileSettings.savedOk') })
     })
   }
 
   function savePassword(e: React.FormEvent) {
     e.preventDefault()
     setPwMsg(null)
-    if (next !== confirm) { setPwMsg({ type: 'err', text: 'New passwords do not match' }); return }
-    if (next.length < 8) { setPwMsg({ type: 'err', text: 'Password must be at least 8 characters' }); return }
+    if (next !== confirm) { setPwMsg({ type: 'err', text: t('profileSettings.pwMismatch') }); return }
+    if (next.length < 8) { setPwMsg({ type: 'err', text: t('profileSettings.pwTooShort') }); return }
     startSavePw(async () => {
       const result = await changePassword({ current, next })
       if (result?.error) setPwMsg({ type: 'err', text: result.error })
       else {
-        setPwMsg({ type: 'ok', text: 'Password changed successfully!' })
+        setPwMsg({ type: 'ok', text: t('profileSettings.pwChangedOk') })
         setCurrent(''); setNext(''); setConfirm('')
       }
     })
@@ -85,14 +88,14 @@ export default function ProfileSettings({ user }: Props) {
       {/* Tab bar */}
       <div className="settings-tab-bar" style={{ marginBottom: 20 }}>
         {[
-          { id: 'profile', label: 'Profile' },
-          { id: 'password', label: 'Password' },
-        ].map(t => (
+          { id: 'profile', label: t('profileSettings.tabProfile') },
+          { id: 'password', label: t('profileSettings.tabPassword') },
+        ].map(tab_ => (
           <button
-            key={t.id}
-            className={`settings-tab-btn${tab === t.id ? ' active' : ''}`}
-            onClick={() => setTab(t.id as typeof tab)}
-          >{t.label}</button>
+            key={tab_.id}
+            className={`settings-tab-btn${tab === tab_.id ? ' active' : ''}`}
+            onClick={() => setTab(tab_.id as typeof tab)}
+          >{tab_.label}</button>
         ))}
       </div>
 
@@ -102,15 +105,15 @@ export default function ProfileSettings({ user }: Props) {
           borderRadius: 'var(--radius-lg)', padding: '22px 24px',
           display: 'flex', flexDirection: 'column', gap: 18,
         }}>
-          <h2 style={{ fontSize: 14, fontWeight: 800 }}>Personal Information</h2>
+          <h2 style={{ fontSize: 14, fontWeight: 800 }}>{t('profileSettings.personalInfo')}</h2>
           <div className="form-group">
-            <label className="form-label">Display Name</label>
-            <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+            <label className="form-label">{t('profile.displayName')}</label>
+            <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('profileSettings.namePlaceholder')} />
           </div>
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">{t('profileSettings.emailLabel')}</label>
             <input className="form-input" value={user.email} disabled style={{ opacity: 0.5 }} />
-            <p style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 4 }}>Email cannot be changed at this time.</p>
+            <p style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 4 }}>{t('profileSettings.emailNote')}</p>
           </div>
           {profileMsg && (
             <p style={{ fontSize: 12, color: profileMsg.type === 'ok' ? 'var(--success)' : 'var(--error)' }}>
@@ -119,7 +122,7 @@ export default function ProfileSettings({ user }: Props) {
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button className="btn btn-primary" onClick={saveProfile} disabled={isSavingProfile || !name.trim()}>
-              {isSavingProfile ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Saving…</> : 'Save Profile'}
+              {isSavingProfile ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('profileSettings.saving')}</> : t('profileSettings.saveBtn')}
             </button>
           </div>
         </div>
@@ -131,17 +134,17 @@ export default function ProfileSettings({ user }: Props) {
           borderRadius: 'var(--radius-lg)', padding: '22px 24px',
           display: 'flex', flexDirection: 'column', gap: 18,
         }}>
-          <h2 style={{ fontSize: 14, fontWeight: 800 }}>Change Password</h2>
+          <h2 style={{ fontSize: 14, fontWeight: 800 }}>{t('profileSettings.changePw')}</h2>
           <div className="form-group">
-            <label className="form-label">Current Password</label>
+            <label className="form-label">{t('profileSettings.currentPw')}</label>
             <input type="password" className="form-input" value={current} onChange={e => setCurrent(e.target.value)} required autoComplete="current-password" />
           </div>
           <div className="form-group">
-            <label className="form-label">New Password</label>
+            <label className="form-label">{t('profileSettings.newPw')}</label>
             <input type="password" className="form-input" value={next} onChange={e => setNext(e.target.value)} required minLength={8} autoComplete="new-password" />
           </div>
           <div className="form-group">
-            <label className="form-label">Confirm New Password</label>
+            <label className="form-label">{t('profileSettings.confirmPw')}</label>
             <input type="password" className="form-input" value={confirm} onChange={e => setConfirm(e.target.value)} required autoComplete="new-password" />
           </div>
           {pwMsg && (
@@ -151,7 +154,7 @@ export default function ProfileSettings({ user }: Props) {
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button type="submit" className="btn btn-primary" disabled={isSavingPw || !current || !next || !confirm}>
-              {isSavingPw ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Changing…</> : 'Change Password'}
+              {isSavingPw ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('profileSettings.changing')}</> : t('profileSettings.changePwBtn')}
             </button>
           </div>
 

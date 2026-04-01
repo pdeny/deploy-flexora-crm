@@ -1,9 +1,9 @@
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
 import WorkspaceSettings from '@/components/WorkspaceSettings'
 import ApiKeysPanel from '@/components/ApiKeysPanel'
+import SettingsPageHeader from './SettingsPageHeader'
 
 export default async function SettingsPage({
   params,
@@ -30,22 +30,11 @@ export default async function SettingsPage({
   return (
     <div className="page-body">
       <div className="page-header">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <Link
-              href={`/dashboard/${workspaceId}`}
-              style={{ color: 'var(--text-tertiary)', textDecoration: 'none', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-              {workspace.iconEmoji} {workspace.name}
-            </Link>
-            <span style={{ color: 'var(--text-disabled)', fontSize: 13 }}>/</span>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Settings</span>
-          </div>
-          <h1 className="page-title">Workspace Settings</h1>
-        </div>
+        <SettingsPageHeader
+          workspaceId={workspaceId}
+          workspaceEmoji={workspace.iconEmoji}
+          workspaceName={workspace.name}
+        />
       </div>
 
       <WorkspaceSettings

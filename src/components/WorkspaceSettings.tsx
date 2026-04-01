@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace } from '@/lib/actions/settings'
+import { useT } from '@/contexts/LanguageContext'
 
 type MemberRow = {
   id: string
@@ -54,6 +55,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
   const [deleteError, setDeleteError] = useState('')
 
   const isOwner = currentUserRole === 'owner'
+  const { t } = useT()
 
   function saveGeneral() {
     setGeneralError('')
@@ -103,16 +105,16 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
       {/* Tab bar */}
       <div className="settings-tab-bar">
         {([
-          { id: 'general', label: 'General' },
-          { id: 'members', label: `Members (${members.length})` },
-          { id: 'danger',  label: 'Danger Zone' },
-        ] as { id: Tab; label: string }[]).map(t => (
+          { id: 'general', label: t('wsSettings.general') },
+          { id: 'members', label: t('wsSettings.membersTab', { n: members.length }) },
+          { id: 'danger',  label: t('wsSettings.danger') },
+        ] as { id: Tab; label: string }[]).map(tab_ => (
           <button
-            key={t.id}
-            className={`settings-tab-btn${tab === t.id ? ' active' : ''}${t.id === 'danger' ? ' danger' : ''}`}
-            onClick={() => setTab(t.id)}
+            key={tab_.id}
+            className={`settings-tab-btn${tab === tab_.id ? ' active' : ''}${tab_.id === 'danger' ? ' danger' : ''}`}
+            onClick={() => setTab(tab_.id)}
           >
-            {t.label}
+            {tab_.label}
           </button>
         ))}
       </div>
@@ -121,10 +123,10 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
       {tab === 'general' && (
         <div className="settings-panel">
           <div className="settings-section">
-            <h2 className="settings-section-title">Workspace Info</h2>
+            <h2 className="settings-section-title">{t('wsSettings.workspaceInfo')}</h2>
 
             <div className="form-group">
-              <label className="form-label">Icon</label>
+              <label className="form-label">{t('common.icon')}</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {EMOJI_OPTIONS.map(e => (
                   <button
@@ -144,17 +146,17 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
             </div>
 
             <div className="form-group">
-              <label className="form-label">Name <span style={{ color: 'var(--error)' }}>*</span></label>
-              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Workspace name" />
+              <label className="form-label">{t('common.name')} <span style={{ color: 'var(--error)' }}>*</span></label>
+              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('wsSettings.namePlaceholder')} />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Description</label>
-              <textarea className="form-input form-textarea" value={description} onChange={e => setDescription(e.target.value)} placeholder="What is this workspace for?" rows={3} />
+              <label className="form-label">{t('common.description')}</label>
+              <textarea className="form-input form-textarea" value={description} onChange={e => setDescription(e.target.value)} placeholder={t('wsSettings.descPlaceholder')} rows={3} />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Color</label>
+              <label className="form-label">{t('common.color')}</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {COLOR_OPTIONS.map(c => (
                   <button
@@ -174,15 +176,15 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
             </div>
 
             {generalError && <p className="form-error">{generalError}</p>}
-            {generalSuccess && <p style={{ fontSize: 12, color: 'var(--success)' }}>Saved successfully!</p>}
+            {generalSuccess && <p style={{ fontSize: 12, color: 'var(--success)' }}>{t('wsSettings.savedOk')}</p>}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button className="btn btn-primary" onClick={saveGeneral} disabled={isSavingGeneral || !isOwner}>
-                {isSavingGeneral ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Saving…</> : 'Save Changes'}
+                {isSavingGeneral ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('wsSettings.saving')}</> : t('wsSettings.saveChanges')}
               </button>
             </div>
 
-            {!isOwner && <p style={{ fontSize: 12, color: 'var(--text-disabled)', marginTop: 8 }}>Only workspace owners can edit settings.</p>}
+            {!isOwner && <p style={{ fontSize: 12, color: 'var(--text-disabled)', marginTop: 8 }}>{t('wsSettings.ownerOnly')}</p>}
           </div>
         </div>
       )}
@@ -192,7 +194,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
         <div className="settings-panel">
           {isOwner && (
             <div className="settings-section">
-              <h2 className="settings-section-title">Invite Member</h2>
+              <h2 className="settings-section-title">{t('wsSettings.inviteMember')}</h2>
               <form onSubmit={handleInvite} style={{ display: 'flex', gap: 10 }}>
                 <input
                   className="form-input"
@@ -200,19 +202,19 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                   type="email"
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
-                  placeholder="colleague@example.com"
+                  placeholder={t('wsSettings.invitePlaceholder')}
                 />
                 <button type="submit" className="btn btn-primary" disabled={isInviting || !inviteEmail.trim()}>
-                  {isInviting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Inviting…</> : 'Invite'}
+                  {isInviting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('wsSettings.inviting')}</> : t('wsSettings.invite')}
                 </button>
               </form>
               {inviteError && <p className="form-error" style={{ marginTop: 8 }}>{inviteError}</p>}
-              {inviteSuccess && <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 8 }}>Member added successfully!</p>}
+              {inviteSuccess && <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 8 }}>{t('wsSettings.memberAdded')}</p>}
             </div>
           )}
 
           <div className="settings-section">
-            <h2 className="settings-section-title">Current Members</h2>
+            <h2 className="settings-section-title">{t('wsSettings.currentMembers')}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {members.map(m => (
                 <div key={m.id} className="member-row">
@@ -236,8 +238,8 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                       onChange={e => handleRoleChange(m.user.id, e.target.value)}
                       disabled={memberAction !== undefined && false}
                     >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
+                      <option value="member">{t('wsSettings.roleMember')}</option>
+                      <option value="admin">{t('wsSettings.roleAdmin')}</option>
                     </select>
                   ) : (
                     <span style={{
@@ -252,7 +254,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                     <button
                       className="btn btn-ghost btn-sm btn-icon"
                       onClick={() => handleRemove(m.user.id)}
-                      title="Remove member"
+                      title={t('wsSettings.removeMember')}
                       style={{ color: 'var(--error)', opacity: 0.7 }}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -273,15 +275,15 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
       {tab === 'danger' && (
         <div className="settings-panel">
           <div className="settings-section danger-zone">
-            <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--error)', marginBottom: 8 }}>Delete Workspace</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--error)', marginBottom: 8 }}>{t('wsSettings.deleteWs')}</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.6 }}>
-              This will permanently delete <strong style={{ color: 'var(--text-primary)' }}>{workspace.name}</strong> and all its apps, items, comments, and tasks. This action cannot be undone.
+              {t('wsSettings.deleteWsDesc', { name: workspace.name })}
             </p>
 
             {isOwner ? (
               <>
                 <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label">Type <strong style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{workspace.name}</strong> to confirm</label>
+                  <label className="form-label">{t('wsSettings.confirmType', { name: workspace.name })}</label>
                   <input
                     className="form-input"
                     value={confirmName}
@@ -296,11 +298,11 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                   onClick={handleDelete}
                   disabled={isDeleting || confirmName !== workspace.name}
                 >
-                  {isDeleting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Deleting…</> : 'Delete Workspace'}
+                  {isDeleting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('wsSettings.deleting')}</> : t('wsSettings.deleteWs')}
                 </button>
               </>
             ) : (
-              <p style={{ fontSize: 12, color: 'var(--text-disabled)' }}>Only workspace owners can delete the workspace.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-disabled)' }}>{t('wsSettings.ownerOnlyDelete')}</p>
             )}
           </div>
         </div>

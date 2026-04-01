@@ -6,6 +6,7 @@ import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
 import { deleteItem, duplicateItem, updateItem, bulkDeleteItems, bulkUpdateField } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
   id: string
@@ -279,6 +280,7 @@ function BulkToolbar({
   onClear: () => void
   isPending: boolean
 }) {
+  const { t } = useT()
   const [showFieldPicker, setShowFieldPicker] = useState(false)
   const [chosenField, setChosenField] = useState<AppField | null>(null)
   const [fieldValue, setFieldValue] = useState<string>('')
@@ -296,7 +298,7 @@ function BulkToolbar({
 
   return (
     <div className="bulk-toolbar">
-      <span className="bulk-count">{count} selected</span>
+      <span className="bulk-count">{t('table.selected', { n: count })}</span>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         {/* Bulk set field */}
         {fields.length > 0 && (
@@ -306,7 +308,7 @@ function BulkToolbar({
               onClick={() => { setShowFieldPicker(v => !v); setConfirmDel(false) }}
               disabled={isPending}
             >
-              Set field
+              {t('table.setField')}
             </button>
             {showFieldPicker && (
               <div className="bulk-field-popover">
@@ -358,9 +360,9 @@ function BulkToolbar({
         <div style={{ position: 'relative' }}>
           {confirmDel ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Delete {count} items?</span>
-              <button className="btn btn-danger btn-sm" onClick={onDelete} disabled={isPending}>Delete</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>Cancel</button>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('table.bulkDelete')}?</span>
+              <button className="btn btn-danger btn-sm" onClick={onDelete} disabled={isPending}>{t('common.delete')}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>{t('common.cancel')}</button>
             </div>
           ) : (
             <button
@@ -368,12 +370,12 @@ function BulkToolbar({
               onClick={() => { setConfirmDel(true); setShowFieldPicker(false) }}
               disabled={isPending}
             >
-              Delete
+              {t('table.bulkDelete')}
             </button>
           )}
         </div>
 
-        <button className="btn btn-ghost btn-sm" onClick={onClear} disabled={isPending}>Clear</button>
+        <button className="btn btn-ghost btn-sm" onClick={onClear} disabled={isPending}>{t('table.clear')}</button>
       </div>
     </div>
   )
@@ -382,6 +384,7 @@ function BulkToolbar({
 // ─── Main table ───────────────────────────────────────────────────────────────
 
 export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const [localItems, setLocalItems] = useState<ItemRow[]>(items)
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
@@ -583,7 +586,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               return (
                 <td key={f.id} style={{ minWidth: 100 }}>
                   <span style={{ fontSize: 11, color: 'var(--text-disabled)', fontStyle: 'italic' }}>
-                    Open item ↗
+                    {t('table.openItem')}
                   </span>
                 </td>
               )
@@ -649,8 +652,8 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
     return (
       <div className="empty-state">
         <div className="empty-state-icon">📄</div>
-        <p className="empty-state-title">No items yet</p>
-        <p className="empty-state-desc">Click &quot;Add Item&quot; to create your first entry.</p>
+        <p className="empty-state-title">{t('table.noItems')}</p>
+        <p className="empty-state-desc">{t('table.noItemsDesc')}</p>
       </div>
     )
   }
@@ -675,14 +678,14 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
           borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', flexShrink: 0, flexWrap: 'wrap',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>Group by</span>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('table.groupBy')}</span>
             <select
               className="form-input form-select"
               value={groupBy}
               onChange={e => { setGroupBy(e.target.value); setCollapsedGroups(new Set()) }}
               style={{ width: 'auto', padding: '3px 24px 3px 8px', fontSize: 11 }}
             >
-              <option value="">— None —</option>
+              <option value="">— {t('table.none')} —</option>
               {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
             {groupBy && (
@@ -691,14 +694,14 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
           </div>
           {fields.some(f => f.type === 'category') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>Color by</span>
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('table.colorBy')}</span>
               <select
                 className="form-input form-select"
                 value={colorBy}
                 onChange={e => setColorBy(e.target.value)}
                 style={{ width: 'auto', padding: '3px 24px 3px 8px', fontSize: 11 }}
               >
-                <option value="">— None —</option>
+                <option value="">— {t('table.none')} —</option>
                 {fields.filter(f => f.type === 'category').map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
               {colorBy && (
@@ -719,7 +722,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
                   checked={allSelected}
                   onChange={toggleSelectAll}
                   style={{ accentColor: 'var(--brand-500)', cursor: 'pointer', width: 14, height: 14 }}
-                  title={allSelected ? 'Deselect all' : 'Select all'}
+                  title={allSelected ? t('table.clear') : t('table.selectAll')}
                 />
               </th>
               <th>Title</th>
@@ -730,9 +733,9 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
                   {f.description && <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>ⓘ</span>}
                 </th>
               ))}
-              <th>Creator</th>
-              <th>Updated</th>
-              <th style={{ width: 90 }}>Activity</th>
+              <th>{t('table.creator')}</th>
+              <th>{t('table.created')}</th>
+              <th style={{ width: 90 }}>{t('detail.tabs.activity')}</th>
             </tr>
           </thead>
           <tbody>
@@ -790,7 +793,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
               <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
-            Open detail
+            {t('table.openItem')}
           </button>
           <button
             className="context-menu-item"
@@ -800,15 +803,15 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
-            Duplicate
+            {t('table.duplicate')}
           </button>
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
           {confirmDelete === contextMenu.itemId ? (
             <div style={{ padding: '6px 10px' }}>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>Delete &quot;{contextMenu.itemTitle.slice(0, 30)}&quot;?</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>{t('table.deleteConfirm', { title: contextMenu.itemTitle.slice(0, 30) })}</p>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-danger btn-sm" style={{ fontSize: 11, flex: 1 }} onClick={() => handleDelete(contextMenu.itemId)} disabled={isPending}>Delete</button>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDelete(null)}>Cancel</button>
+                <button className="btn btn-danger btn-sm" style={{ fontSize: 11, flex: 1 }} onClick={() => handleDelete(contextMenu.itemId)} disabled={isPending}>{t('common.delete')}</button>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDelete(null)}>{t('common.cancel')}</button>
               </div>
             </div>
           ) : (
@@ -817,7 +820,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
                 <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                 <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
               </svg>
-              Delete…
+              {t('common.delete')}…
             </button>
           )}
         </div>

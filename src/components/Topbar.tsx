@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { User } from '@/generated/prisma'
 import NotificationBell from '@/components/NotificationBell'
 import SearchModal from '@/components/SearchModal'
+import { useT } from '@/contexts/LanguageContext'
 
 type NotificationItem = {
   id: string
@@ -21,6 +22,8 @@ type Props = {
 }
 
 export default function Topbar({ user, notifications, unreadCount }: Props) {
+  const { t, lang, setLang } = useT()
+
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     if (typeof window === 'undefined') return 'dark'
     return (localStorage.getItem('flexora-theme') as 'dark' | 'light' | null) ?? 'dark'
@@ -44,7 +47,7 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
     <header className="topbar">
       <button
         className="topbar-hamburger"
-        aria-label="Toggle sidebar"
+        aria-label={t('topbar.toggleSidebar')}
         onClick={() => document.dispatchEvent(new CustomEvent('toggle-sidebar'))}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -59,9 +62,26 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
       <div className="topbar-actions">
         <SearchModal />
         <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+
+        {/* Language toggle */}
+        <button
+          className="btn btn-ghost btn-sm"
+          title={t('topbar.switchLangTitle')}
+          onClick={() => setLang(lang === 'it' ? 'en' : 'it')}
+          style={{
+            color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700,
+            height: 28, padding: '0 8px', letterSpacing: 0.5,
+            border: '1px solid var(--border-subtle)', borderRadius: 6,
+            minWidth: 36,
+          }}
+        >
+          {t('topbar.switchLang')}
+        </button>
+
+        {/* Theme toggle */}
         <button
           className="btn btn-ghost btn-sm btn-icon"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
           style={{ color: 'var(--text-tertiary)', width: 28, height: 28 }}
           onClick={toggleTheme}
         >
@@ -78,12 +98,15 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
             </svg>
           )}
         </button>
+
+        {/* Keyboard shortcuts */}
         <button
           className="btn btn-ghost btn-sm btn-icon"
-          title="Keyboard shortcuts (?)"
+          title={t('topbar.shortcuts')}
           style={{ color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 700, width: 28, height: 28 }}
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
         >?</button>
+
         <div className="topbar-avatar" title={user.name ?? user.email}>
           {(user.name ?? user.email)[0].toUpperCase()}
         </div>

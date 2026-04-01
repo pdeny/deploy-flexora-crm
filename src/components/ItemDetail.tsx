@@ -3,6 +3,7 @@
 import React, { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateItem, addComment, createTask, updateTaskStatus } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
 import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
@@ -283,6 +284,7 @@ function TaskRow({ task }: { task: TaskType }) {
 }
 
 export default function ItemDetail({ item, fields, user, workspaceMembers = [], activityLogs = [], workspaceApps = [], linkedByField = {} }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const [title, setTitle]   = useState(item.title)
   const [data, setData]     = useState<Record<string, unknown>>(() => {
@@ -408,7 +410,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
-          Back
+          {t('common.back')}
         </button>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
@@ -417,13 +419,13 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
         {dirty && (
           <button className="btn btn-primary btn-sm" onClick={save} disabled={isSaving}>
             {isSaving
-              ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Saving…</>
+              ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('common.saving')}</>
               : <>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                   </svg>
-                  Save
+                  {t('common.save')}
                 </>
             }
           </button>
@@ -438,7 +440,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
             className="item-title-input"
             value={title}
             onChange={handleTitleChange}
-            placeholder="Item title"
+            placeholder={t('detail.itemTitlePlaceholder')}
           />
 
           {/* Description */}
@@ -449,7 +451,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
               value={description}
               onChange={e => { setData(d => ({ ...d, __description__: e.target.value })); setDirty(true) }}
               onBlur={() => setDescEdit(false)}
-              placeholder="Add a description… (supports **bold**, *italic*, `code`, - lists)"
+              placeholder={t('detail.descPlaceholder')}
               rows={5}
               style={{ fontSize: 13, minHeight: 90, marginBottom: 16, lineHeight: 1.6, resize: 'vertical' }}
             />
@@ -471,7 +473,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                 </div>
               ) : (
                 <span style={{ fontSize: 13, color: 'var(--text-disabled)', fontStyle: 'italic' }}>
-                  Add a description…
+                  {t('detail.descPlaceholder')}
                 </span>
               )}
             </div>
@@ -480,15 +482,15 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
           {/* Meta info */}
           <div className="item-meta-row">
             <div className="item-meta-chip">
-              <span style={{ opacity: 0.5 }}>Created by</span>
+              <span style={{ opacity: 0.5 }}>{t('detail.createdBy')}</span>
               <strong>{item.creator.name ?? item.creator.email}</strong>
             </div>
             <div className="item-meta-chip">
-              <span style={{ opacity: 0.5 }}>Created</span>
+              <span style={{ opacity: 0.5 }}>{t('detail.created')}</span>
               <strong>{new Date(item.createdAt).toLocaleDateString()}</strong>
             </div>
             <div className="item-meta-chip">
-              <span style={{ opacity: 0.5 }}>Updated</span>
+              <span style={{ opacity: 0.5 }}>{t('detail.updated')}</span>
               <strong>{formatRelative(item.updatedAt)}</strong>
             </div>
           </div>
@@ -496,7 +498,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
           {/* Fields */}
           {fields.length > 0 && (
             <div className="item-fields-card">
-              <div className="item-section-label">Fields</div>
+              <div className="item-section-label">{t('detail.fields')}</div>
               <div className="item-fields-list">
                 {fields.map(f => (
                   <div key={f.id} className="item-field-row">
@@ -504,14 +506,14 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                       {f.name}
                       {f.required && <span style={{ color: 'var(--error)', marginLeft: 3 }}>*</span>}
                       {f.type === 'calculation' && (
-                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>formula</span>
+                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>{t('detail.formula')}</span>
                       )}
                     </label>
                     <div className="item-field-value">
                       {f.type === 'relation' ? (() => {
                         const relatedApp = workspaceApps.find(a => a.id === f.relatedAppId)
                         if (!f.relatedAppId || !relatedApp) {
-                          return <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>No linked app configured</span>
+                          return <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>{t('detail.noLinkedApp')}</span>
                         }
                         return (
                           <RelationField
@@ -554,7 +556,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
 
           {fields.length === 0 && (
             <div style={{ padding: '24px 0', color: 'var(--text-tertiary)', fontSize: 13 }}>
-              No custom fields. Add fields from the app header.
+              {t('detail.noFields')}
             </div>
           )}
         </div>
@@ -567,14 +569,14 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
               className={`sidebar-tab ${sidebarTab === 'tasks' ? 'active' : ''}`}
               onClick={() => setSidebarTab('tasks')}
             >
-              Tasks
+              {t('detail.tabs.tasks')}
               {item.tasks.length > 0 && <span className="item-count-badge">{item.tasks.length}</span>}
             </button>
             <button
               className={`sidebar-tab ${sidebarTab === 'activity' ? 'active' : ''}`}
               onClick={() => setSidebarTab('activity')}
             >
-              Activity
+              {t('detail.tabs.activity')}
               {(item.comments.length + activityLogs.length) > 0 && (
                 <span className="item-count-badge">{item.comments.length + activityLogs.length}</span>
               )}
@@ -588,7 +590,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                   className="form-input"
                   value={taskTitle}
                   onChange={e => setTaskTitle(e.target.value)}
-                  placeholder="Add a task…"
+                  placeholder={t('detail.taskPlaceholder')}
                   style={{ flex: 1, fontSize: 13 }}
                 />
                 <button type="submit" className="btn btn-secondary btn-sm btn-icon" disabled={isAddingTask || !taskTitle.trim()} title="Add task">
@@ -599,8 +601,8 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
               </form>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {item.tasks.length === 0
-                  ? <p style={{ fontSize: 12, color: 'var(--text-disabled)', paddingTop: 4 }}>No tasks yet.</p>
-                  : item.tasks.map(t => <TaskRow key={t.id} task={t} />)
+                  ? <p style={{ fontSize: 12, color: 'var(--text-disabled)', paddingTop: 4 }}>{t('detail.noTasks')}</p>
+                  : item.tasks.map(task => <TaskRow key={task.id} task={task} />)
                 }
               </div>
             </div>
@@ -633,7 +635,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                         </div>
                         <div className="activity-event-body">
                           <span className="activity-event-who">{event.task.creator.name ?? event.task.creator.email}</span>
-                          {' '}<span className="activity-event-action">added task</span>{' '}
+                          {' '}<span className="activity-event-action">{t('detail.addedTask')}</span>{' '}
                           <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 12 }}>&quot;{event.task.title}&quot;</span>
                           <div className="activity-event-time">{formatRelative(event.date)}</div>
                         </div>
@@ -651,7 +653,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                         </div>
                         <div className="activity-event-body">
                           <span className="activity-event-who">{event.log.user.name ?? event.log.user.email}</span>
-                          {' '}<span className="activity-event-action">changed</span>{' '}
+                          {' '}<span className="activity-event-action">{t('detail.changed')}</span>{' '}
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 12 }}>
                             {isTitle ? 'title' : meta.fieldName}
                           </span>
@@ -722,7 +724,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                   className="form-input form-textarea"
                   value={commentText}
                   onChange={handleCommentChange}
-                  placeholder={`Comment as ${user.name ?? user.email}… (@mention to notify)`}
+                  placeholder={t('detail.commentPlaceholder')}
                   rows={3}
                   style={{ fontSize: 13, minHeight: 72 }}
                   onKeyDown={handleCommentKeyDown}
@@ -730,7 +732,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>⌘↩ to send · @ to mention</span>
                   <button type="submit" className="btn btn-secondary btn-sm" disabled={isCommenting || !commentText.trim()}>
-                    {isCommenting ? 'Sending…' : 'Comment'}
+                    {t('detail.send')}
                   </button>
                 </div>
               </form>

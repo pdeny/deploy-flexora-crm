@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { AppField } from '@/lib/types'
+import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
   id: string
@@ -22,6 +23,7 @@ type Props = {
 }
 
 export default function CalendarView({ app, items, fields, workspaceId }: Props) {
+  const { t } = useT()
   const router = useRouter()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -33,8 +35,8 @@ export default function CalendarView({ app, items, fields, workspaceId }: Props)
     return (
       <div className="empty-state">
         <div className="empty-state-icon">📅</div>
-        <p className="empty-state-title">No date field</p>
-        <p className="empty-state-desc">Add a date field to use Calendar view. Go to Fields → Add Field → Date.</p>
+        <p className="empty-state-title">{t('empty.timeline.noDate')}</p>
+        <p className="empty-state-desc">{t('empty.calendar.noDate')}</p>
       </div>
     )
   }
@@ -82,18 +84,18 @@ export default function CalendarView({ app, items, fields, workspaceId }: Props)
         display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
         borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', flexShrink: 0,
       }}>
-        <button className="btn btn-ghost btn-sm btn-icon" onClick={prevMonth} title="Previous month">
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={prevMonth} title={t('cal.prevMonth')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
         <span style={{ fontWeight: 800, fontSize: 15, minWidth: 200, textAlign: 'center', letterSpacing: '-0.3px' }}>{monthLabel}</span>
-        <button className="btn btn-ghost btn-sm btn-icon" onClick={nextMonth} title="Next month">
+        <button className="btn btn-ghost btn-sm btn-icon" onClick={nextMonth} title={t('cal.nextMonth')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={goToday} style={{ marginLeft: 4, fontSize: 11 }}>Today</button>
+        <button className="btn btn-secondary btn-sm" onClick={goToday} style={{ marginLeft: 4, fontSize: 11 }}>{t('cal.today')}</button>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-tertiary)' }}>
           by <strong style={{ color: 'var(--text-secondary)' }}>{dateField.name}</strong>
         </span>
@@ -103,7 +105,7 @@ export default function CalendarView({ app, items, fields, workspaceId }: Props)
       <div style={{ flex: 1, overflow: 'auto', padding: '0 16px 16px' }}>
         {/* Weekday headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 2 }}>
-          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+          {t('cal.weekdays').split(',').map(d => (
             <div key={d} style={{
               textAlign: 'center', fontSize: 10, fontWeight: 700,
               color: 'var(--text-disabled)', padding: '10px 4px',
@@ -141,7 +143,7 @@ export default function CalendarView({ app, items, fields, workspaceId }: Props)
                   ))}
                   {dayItems.length > 4 && (
                     <span style={{ fontSize: 10, color: 'var(--text-disabled)', paddingLeft: 4, lineHeight: 1.4 }}>
-                      +{dayItems.length - 4} more
+                      {t('cal.more', { n: dayItems.length - 4 })}
                     </span>
                   )}
                 </div>

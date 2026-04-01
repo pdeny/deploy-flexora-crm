@@ -5,6 +5,7 @@ import { useState, useTransition, useRef, useEffect } from 'react'
 import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { createItem, updateItem } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
   id: string
@@ -106,6 +107,7 @@ function QuickAdd({
   groupOptionId: string | null
   onDone: () => void
 }) {
+  const { t } = useT()
   const [title, setTitle] = useState('')
   const [isPending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -133,7 +135,7 @@ function QuickAdd({
         ref={inputRef}
         value={title}
         onChange={e => setTitle(e.target.value)}
-        placeholder="Item title…"
+        placeholder={t('kanban.itemPlaceholder')}
         disabled={isPending}
         style={{
           width: '100%', background: 'var(--bg-overlay)', border: '1px solid var(--brand-500)',
@@ -147,12 +149,13 @@ function QuickAdd({
         }}
         onBlur={() => { if (!isPending) submit() }}
       />
-      <p style={{ fontSize: 10, color: 'var(--text-disabled)', marginTop: 4 }}>↵ to add · Esc to cancel</p>
+      <p style={{ fontSize: 10, color: 'var(--text-disabled)', marginTop: 4 }}>{t('kanban.hint')}</p>
     </div>
   )
 }
 
 export default function KanbanBoard({ app, items, fields, workspaceId }: Props) {
+  const { t } = useT()
   const router = useRouter()
 
   // Find first category field to group by
@@ -173,8 +176,8 @@ export default function KanbanBoard({ app, items, fields, workspaceId }: Props) 
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🏷</div>
-        <p className="empty-state-title">No category fields</p>
-        <p className="empty-state-desc">Add a category field to use Kanban view. Go to Fields → Add Field → Category.</p>
+        <p className="empty-state-title">{t('empty.kanban.noCategory')}</p>
+        <p className="empty-state-desc">{t('empty.kanban.noCategoryDesc')}</p>
       </div>
     )
   }
@@ -210,7 +213,7 @@ export default function KanbanBoard({ app, items, fields, workspaceId }: Props) 
     }
   }
   // Always include "No category" column
-  columns.push({ id: '__none__', label: 'No Category', color: 'var(--text-disabled)', items: [] })
+  columns.push({ id: '__none__', label: t('kanban.noCategory'), color: 'var(--text-disabled)', items: [] })
 
   for (const item of localItems) {
     let data: Record<string, unknown> = {}
@@ -235,7 +238,7 @@ export default function KanbanBoard({ app, items, fields, workspaceId }: Props) 
           borderBottom: '1px solid var(--border-subtle)', flexShrink: 0,
           background: 'var(--bg-surface)',
         }}>
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Group by</span>
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('header.groupBy')}</span>
           <select
             className="form-input form-select"
             value={groupFieldId}
@@ -270,7 +273,7 @@ export default function KanbanBoard({ app, items, fields, workspaceId }: Props) 
             <div className="kanban-cards">
               {col.items.length === 0 && quickAddCol !== col.id && (
                 <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-disabled)', fontSize: 12 }}>
-                  Empty
+                  {t('kanban.empty')}
                 </div>
               )}
               {col.items.map(item => {
@@ -336,7 +339,7 @@ export default function KanbanBoard({ app, items, fields, workspaceId }: Props) 
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Add item
+                {t('kanban.addItem')}
               </button>
             )}
           </div>

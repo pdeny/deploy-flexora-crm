@@ -3,6 +3,8 @@
 import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAppFields, createItem, updateApp, deleteApp } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
+import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption } from '@/lib/types'
 import type { FilterRule } from '@/lib/filters'
 import ViewToggle from '@/components/ViewToggle'
@@ -11,20 +13,20 @@ import SortDropdown from '@/components/SortDropdown'
 import ShareLinkModal from '@/components/ShareLinkModal'
 import FormBuilderModal from '@/components/FormBuilderModal'
 
-const FIELD_TYPES: { value: FieldType; label: string; icon: string }[] = [
-  { value: 'text',        label: 'Text',        icon: 'T' },
-  { value: 'number',      label: 'Number',      icon: '#' },
-  { value: 'date',        label: 'Date',        icon: '📅' },
-  { value: 'category',    label: 'Category',    icon: '🏷' },
-  { value: 'multiselect', label: 'Multi-select', icon: '🔖' },
-  { value: 'rating',      label: 'Rating',      icon: '⭐' },
-  { value: 'progress',    label: 'Progress',    icon: '▓' },
-  { value: 'email',       label: 'Email',       icon: '✉' },
-  { value: 'url',         label: 'URL',         icon: '🔗' },
-  { value: 'phone',       label: 'Phone',       icon: '📞' },
-  { value: 'toggle',      label: 'Toggle',      icon: '☑' },
-  { value: 'calculation', label: 'Formula',     icon: 'ƒ' },
-  { value: 'relation',    label: 'Linked Record', icon: '🔗' },
+const FIELD_TYPE_DEFS: { value: FieldType; labelKey: LangKey; icon: string }[] = [
+  { value: 'text',        labelKey: 'header.fieldType.text',        icon: 'T' },
+  { value: 'number',      labelKey: 'header.fieldType.number',      icon: '#' },
+  { value: 'date',        labelKey: 'header.fieldType.date',        icon: '📅' },
+  { value: 'category',    labelKey: 'header.fieldType.category',    icon: '🏷' },
+  { value: 'multiselect', labelKey: 'header.fieldType.multiselect', icon: '🔖' },
+  { value: 'rating',      labelKey: 'header.fieldType.rating',      icon: '⭐' },
+  { value: 'progress',    labelKey: 'header.fieldType.progress',    icon: '▓' },
+  { value: 'email',       labelKey: 'header.fieldType.email',       icon: '✉' },
+  { value: 'url',         labelKey: 'header.fieldType.url',         icon: '🔗' },
+  { value: 'phone',       labelKey: 'header.fieldType.phone',       icon: '📞' },
+  { value: 'toggle',      labelKey: 'header.fieldType.toggle',      icon: '☑' },
+  { value: 'calculation', labelKey: 'header.fieldType.calculation', icon: 'ƒ' },
+  { value: 'relation',    labelKey: 'header.fieldType.relation',    icon: '🔗' },
 ]
 
 const OPTION_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b981','#06b6d4','#3b82f6']
@@ -110,6 +112,7 @@ export default function AppHeader({
   items = [],
   workspaceApps = [],
 }: Props) {
+  const { t } = useT()
   const router = useRouter()
 
   // Field management state
@@ -407,7 +410,7 @@ export default function AppHeader({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
               </svg>
-              Views{savedViews.length > 0 && ` (${savedViews.length})`}
+              {t('header.savedViews')}{savedViews.length > 0 && ` (${savedViews.length})`}
             </button>
             {showViews && (
               <div className="app-more-menu" style={{ minWidth: 220, left: 0, right: 'auto' }}>
@@ -438,7 +441,7 @@ export default function AppHeader({
                 <div style={{ padding: '6px 8px 4px', display: 'flex', gap: 6 }}>
                   <input
                     className="form-input"
-                    placeholder="View name…"
+                    placeholder={t('header.viewName')}
                     value={viewName}
                     onChange={e => setViewName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && saveCurrentView()}
@@ -449,7 +452,7 @@ export default function AppHeader({
                     onClick={saveCurrentView}
                     disabled={!viewName.trim()}
                     style={{ fontSize: 11, whiteSpace: 'nowrap' }}
-                  >Save</button>
+                  >{t('header.saveViewBtn')}</button>
                 </div>
                 <p style={{ fontSize: 10, color: 'var(--text-disabled)', padding: '0 10px 6px', lineHeight: 1.4 }}>
                   Saves current view, filters, and sort settings
@@ -468,7 +471,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            Filter
+            {filterRules.length > 0 ? t('header.filters', { n: filterRules.length }) : t('header.filter')}
             {filterRules.length > 0 && (
               <span style={{
                 position: 'absolute', top: -6, right: -6,
@@ -483,7 +486,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
             </svg>
-            Fields
+            {t('header.fields')}
           </button>
           <button
             className="btn btn-secondary btn-sm btn-icon"
@@ -503,7 +506,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            Add Item
+            {t('header.addItem')}
           </button>
 
           {/* More menu */}
@@ -524,7 +527,7 @@ export default function AppHeader({
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
-                  Edit App
+                  {t('header.editApp')}
                 </button>
                 <button className="app-more-item" onClick={() => { setShowMore(false); exportToCSV(items, fields, app.name) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -532,7 +535,7 @@ export default function AppHeader({
                     <polyline points="7 10 12 15 17 10"/>
                     <line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  Export CSV
+                  {t('header.exportCSV')}
                 </button>
                 <button className="app-more-item" onClick={() => { setShowMore(false); setCsvText(''); setCsvPreview(null); setCsvMapping({}); setCsvImportResult(null); setShowImportCSV(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -540,27 +543,27 @@ export default function AppHeader({
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                   </svg>
-                  Import CSV
+                  {t('header.importCSV')}
                 </button>
                 <button className="app-more-item" onClick={() => { setShowMore(false); router.push(`/dashboard/${workspaceId}/${app.id}/automations`) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                   </svg>
-                  Automations
+                  {t('header.automations')}
                 </button>
                 <button className="app-more-item" onClick={() => { setShowMore(false); setShowForm(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <rect x="3" y="5" width="18" height="14" rx="2"/>
                     <path d="M7 9h10M7 13h5"/>
                   </svg>
-                  Form Builder
+                  {t('header.formBuilder')}
                   {app.formToken && (
                     <span style={{
                       marginLeft: 'auto', fontSize: 10, fontWeight: 700,
                       padding: '2px 6px', borderRadius: 9999,
                       background: 'rgba(16,185,129,0.12)', color: 'var(--success)',
                       border: '1px solid rgba(16,185,129,0.2)',
-                    }}>Live</span>
+                    }}>{t('header.live')}</span>
                   )}
                 </button>
                 <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
@@ -569,7 +572,7 @@ export default function AppHeader({
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                     <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
-                  Delete App…
+                  {t('header.deleteApp')}…
                 </button>
               </div>
             )}
@@ -622,7 +625,7 @@ export default function AppHeader({
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div className="form-group">
-                <label className="form-label">Icon</label>
+                <label className="form-label">{t('common.icon')}</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {APP_EMOJIS.map(e => (
                     <button key={e} type="button" onClick={() => setEditEmoji(e)} style={{
@@ -635,15 +638,15 @@ export default function AppHeader({
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                <input className="form-input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="App name" />
+                <label className="form-label">{t('common.name')} <span style={{ color: 'var(--error)' }}>*</span></label>
+                <input className="form-input" value={editName} onChange={e => setEditName(e.target.value)} placeholder={t('header.appNamePlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea className="form-input form-textarea" value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder="What is this app for?" rows={2} style={{ minHeight: 60 }} />
+                <label className="form-label">{t('common.description')}</label>
+                <textarea className="form-input form-textarea" value={editDesc} onChange={e => setEditDesc(e.target.value)} placeholder={t('app.descPlaceholder')} rows={2} style={{ minHeight: 60 }} />
               </div>
               <div className="form-group">
-                <label className="form-label">Color</label>
+                <label className="form-label">{t('common.color')}</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {APP_COLORS.map(c => (
                     <button key={c} type="button" onClick={() => setEditColor(c)} style={{
@@ -658,9 +661,9 @@ export default function AppHeader({
               {editError && <p className="form-error">{editError}</p>}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowEditApp(false)}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => setShowEditApp(false)}>{t('common.cancel')}</button>
               <button className="btn btn-primary" onClick={saveEditApp} disabled={isPendingEdit || !editName.trim()}>
-                {isPendingEdit ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Saving…</> : 'Save'}
+                {isPendingEdit ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('common.saving')}</> : t('common.save')}
               </button>
             </div>
           </div>
@@ -672,7 +675,7 @@ export default function AppHeader({
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="modal" style={{ maxWidth: 420 }}>
             <div className="modal-header">
-              <h2 className="modal-title" style={{ color: 'var(--error)' }}>Delete App</h2>
+              <h2 className="modal-title" style={{ color: 'var(--error)' }}>{t('header.deleteApp')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowDeleteConfirm(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -681,10 +684,10 @@ export default function AppHeader({
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                This will permanently delete <strong style={{ color: 'var(--text-primary)' }}>{app.name}</strong> and all its items, comments, and tasks. This cannot be undone.
+                {t('header.deleteAppBodyPre')} <strong style={{ color: 'var(--text-primary)' }}>{app.name}</strong> {t('header.deleteAppBodyPost')}
               </p>
               <div className="form-group">
-                <label className="form-label">Type <strong style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{app.name}</strong> to confirm</label>
+                <label className="form-label">{t('header.typeToConfirm1')} <strong style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{app.name}</strong> {t('header.typeToConfirm2')}</label>
                 <input
                   className="form-input"
                   value={deleteConfirmName}
@@ -695,13 +698,13 @@ export default function AppHeader({
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>{t('common.cancel')}</button>
               <button
                 className="btn btn-danger"
                 onClick={handleDeleteApp}
                 disabled={isPendingDelete || deleteConfirmName !== app.name}
               >
-                {isPendingDelete ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Deleting…</> : 'Delete App'}
+                {isPendingDelete ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('common.delete')}…</> : t('header.deleteApp')}
               </button>
             </div>
           </div>
@@ -713,7 +716,7 @@ export default function AppHeader({
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && cancelFields()}>
           <div className="modal modal-lg">
             <div className="modal-header">
-              <h2 className="modal-title">Manage Fields</h2>
+              <h2 className="modal-title">{t('header.manageFields')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={cancelFields}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -722,9 +725,9 @@ export default function AppHeader({
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
-                <div className="fields-section-label">Current Fields</div>
+                <div className="fields-section-label">{t('header.currentFields')}</div>
                 {fields.length === 0 ? (
-                  <p style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' }}>No custom fields yet.</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' }}>{t('header.noFields')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {fields.map(f => {
@@ -762,14 +765,14 @@ export default function AppHeader({
                             <button
                               className="btn btn-ghost btn-icon btn-sm"
                               onClick={() => setEditingFieldId(isExpanded ? null : f.id)}
-                              title="Field settings"
+                              title={t('header.fieldSettings')}
                               style={{ color: isExpanded ? 'var(--brand-400)' : 'var(--text-tertiary)' }}
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                               </svg>
                             </button>
-                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeField(f.id)} style={{ color: 'var(--error)', opacity: 0.7 }} title="Remove field">
+                            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => removeField(f.id)} style={{ color: 'var(--error)', opacity: 0.7 }} title={t('header.removeField')}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                               </svg>
@@ -794,13 +797,13 @@ export default function AppHeader({
                                   onChange={e => updateField(f.id, { required: e.target.checked })}
                                   style={{ width: 14, height: 14, accentColor: 'var(--brand-500)', cursor: 'pointer' }}
                                 />
-                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Required</span>
-                                <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>— block save if empty</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>{t('header.required')}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>{t('header.requiredHint')}</span>
                               </label>
                               {f.type === 'relation' && (
                                 <div>
                                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>
-                                    Linked app
+                                    {t('header.linkedApp')}
                                   </div>
                                   <select
                                     className="form-input form-select"
@@ -808,7 +811,7 @@ export default function AppHeader({
                                     onChange={e => updateField(f.id, { relatedAppId: e.target.value || undefined })}
                                     style={{ fontSize: 12 }}
                                   >
-                                    <option value="">— Choose an app —</option>
+                                    <option value="">{t('header.chooseApp')}</option>
                                     {workspaceApps.filter(a => a.id !== app.id).map(a => (
                                       <option key={a.id} value={a.id}>{a.iconEmoji} {a.name}</option>
                                     ))}
@@ -818,7 +821,7 @@ export default function AppHeader({
                               {f.type === 'calculation' && (
                                 <div>
                                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>
-                                    Formula <span style={{ fontWeight: 400, color: 'var(--text-disabled)' }}>— use {'{fieldId}'} to reference fields</span>
+                                    {t('header.formula')}
                                   </div>
                                   <input
                                     className="form-input"
@@ -834,7 +837,7 @@ export default function AppHeader({
                               )}
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>
-                                  Description <span style={{ fontWeight: 400, color: 'var(--text-disabled)' }}>(shown as hint in forms)</span>
+                                  {t('header.fieldDesc')}
                                 </div>
                                 <input
                                   className="form-input"
@@ -853,14 +856,14 @@ export default function AppHeader({
                 )}
               </div>
               <div className="add-field-panel">
-                <div className="fields-section-label">Add Field</div>
+                <div className="fields-section-label">{t('header.addField')}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px auto', gap: 10 }}>
-                  <input className="form-input" value={newFieldName} onChange={e => setNewFieldName(e.target.value)} placeholder="Field name"
+                  <input className="form-input" value={newFieldName} onChange={e => setNewFieldName(e.target.value)} placeholder={t('header.fieldName')}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), newFieldName.trim() && addField())} />
                   <select className="form-input form-select" value={newFieldType} onChange={e => { setNewFieldType(e.target.value as FieldType); setNewOptions([]) }}>
-                    {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
+                    {FIELD_TYPE_DEFS.map(ft => <option key={ft.value} value={ft.value}>{ft.icon} {t(ft.labelKey)}</option>)}
                   </select>
-                  <button className="btn btn-secondary" onClick={addField} disabled={!newFieldName.trim()}>Add</button>
+                  <button className="btn btn-secondary" onClick={addField} disabled={!newFieldName.trim()}>{t('header.addFieldBtn')}</button>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 10 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
@@ -870,19 +873,19 @@ export default function AppHeader({
                       onChange={e => setNewFieldRequired(e.target.checked)}
                       style={{ width: 13, height: 13, accentColor: 'var(--brand-500)', cursor: 'pointer' }}
                     />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Required</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>{t('header.required')}</span>
                   </label>
                   <input
                     className="form-input"
                     value={newFieldDesc}
                     onChange={e => setNewFieldDesc(e.target.value)}
-                    placeholder="Description (optional)"
+                    placeholder={t('header.descOptional')}
                     style={{ flex: 1, fontSize: 12 }}
                   />
                 </div>
                 {newFieldType === 'calculation' && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>Formula</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.formula')}</div>
                     <input
                       className="form-input"
                       value={newFieldFormula}
@@ -897,13 +900,13 @@ export default function AppHeader({
                 )}
                 {newFieldType === 'relation' && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>Link to app</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.linkedApp')}</div>
                     <select
                       className="form-input form-select"
                       value={newFieldRelatedApp}
                       onChange={e => setNewFieldRelatedApp(e.target.value)}
                     >
-                      <option value="">— Choose an app —</option>
+                      <option value="">{t('header.chooseApp')}</option>
                       {workspaceApps.filter(a => a.id !== app.id).map(a => (
                         <option key={a.id} value={a.id}>{a.iconEmoji} {a.name}</option>
                       ))}
@@ -912,7 +915,7 @@ export default function AppHeader({
                 )}
                 {(newFieldType === 'category' || newFieldType === 'multiselect') && (
                   <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8 }}>Options</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8 }}>{t('header.options')}</div>
                     {newOptions.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
                         {newOptions.map(o => (
@@ -923,17 +926,17 @@ export default function AppHeader({
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input className="form-input" value={newOptionLabel} onChange={e => setNewOptionLabel(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addOption())}
-                        placeholder="Option label" style={{ maxWidth: 220 }} />
-                      <button className="btn btn-secondary btn-sm" onClick={addOption} disabled={!newOptionLabel.trim()}>+ Add option</button>
+                        placeholder={t('header.optionLabel')} style={{ maxWidth: 220 }} />
+                      <button className="btn btn-secondary btn-sm" onClick={addOption} disabled={!newOptionLabel.trim()}>{t('header.addOption')}</button>
                     </div>
                   </div>
                 )}
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={cancelFields}>Cancel</button>
+              <button className="btn btn-secondary" onClick={cancelFields}>{t('common.cancel')}</button>
               <button className="btn btn-primary" onClick={saveFields} disabled={isPendingFields}>
-                {isPendingFields ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Saving…</> : 'Save Fields'}
+                {isPendingFields ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('common.saving')}</> : t('common.save')}
               </button>
             </div>
           </div>
@@ -945,7 +948,7 @@ export default function AppHeader({
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowAddItem(false)}>
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">Add Item</h2>
+              <h2 className="modal-title">{t('header.addItem')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowAddItem(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -960,8 +963,8 @@ export default function AppHeader({
                   </div>
                 )}
                 <div className="form-group">
-                  <label className="form-label">Title <span style={{ color: 'var(--error)' }}>*</span></label>
-                  <input className="form-input" name="title" placeholder="Item title" required autoFocus />
+                  <label className="form-label">{t('header.itemTitleLabel')} <span style={{ color: 'var(--error)' }}>*</span></label>
+                  <input className="form-input" name="title" placeholder={t('header.itemTitlePlaceholder')} required autoFocus />
                 </div>
                 {fields.map(f => (
                   <div key={f.id} className="form-group">
@@ -971,9 +974,9 @@ export default function AppHeader({
                 ))}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddItem(false)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddItem(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary" disabled={isPendingItem}>
-                  {isPendingItem ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Adding…</> : 'Add Item'}
+                  {isPendingItem ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('header.addItem')}…</> : t('header.addItem')}
                 </button>
               </div>
             </form>
@@ -986,7 +989,7 @@ export default function AppHeader({
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowImportCSV(false)}>
           <div className="modal modal-lg">
             <div className="modal-header">
-              <h2 className="modal-title">Import CSV</h2>
+              <h2 className="modal-title">{t('header.importCSV')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowImportCSV(false)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1007,8 +1010,8 @@ export default function AppHeader({
                   onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = ''; const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
                 >
                   <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📂</div>
-                  <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Drop a CSV file here</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>or click to browse</p>
+                  <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('header.dragCSV')}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>{t('header.orBrowse')}</p>
                   <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
                   <p style={{ fontSize: 11, color: 'var(--text-disabled)' }}>First row must be headers. Title column is required.</p>
                 </div>
@@ -1080,11 +1083,11 @@ export default function AppHeader({
                     onClick={handleCSVImport}
                     disabled={csvImporting || !Object.values(csvMapping).includes('title')}
                   >
-                    {csvImporting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Importing…</> : `Import ${csvPreview.rows.length} rows`}
+                    {csvImporting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('header.importBtn')}…</> : t('header.importBtn')}
                   </button>
                 </>
               ) : (
-                <button className="btn btn-secondary" onClick={() => setShowImportCSV(false)}>Cancel</button>
+                <button className="btn btn-secondary" onClick={() => setShowImportCSV(false)}>{t('common.cancel')}</button>
               )}
             </div>
           </div>

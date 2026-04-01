@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import type { AutomationTrigger, AutomationAction, AppField } from '@/lib/types'
 import { createAutomation, updateAutomation, deleteAutomation, testWebhook } from '@/lib/actions/automations'
+import { useT } from '@/contexts/LanguageContext'
 
 type AutomationRow = {
   id: string
@@ -20,19 +21,6 @@ type Props = {
   fields: AppField[]
 }
 
-const TRIGGER_LABELS: Record<AutomationTrigger['type'], string> = {
-  item_created: 'Item created',
-  item_updated: 'Item updated',
-  comment_added: 'Comment added',
-  scheduled: 'Scheduled',
-}
-
-const ACTION_LABELS: Record<AutomationAction['type'], string> = {
-  notify: 'Send notification',
-  webhook: 'Call webhook',
-  send_email: 'Send email',
-  create_item: 'Create item',
-}
 
 // ─── Create modal ─────────────────────────────────────────────────────────────
 
@@ -49,13 +37,28 @@ function CreateModal({
   const [actionConfig, setActionConfig] = useState<Record<string, unknown>>({})
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
+  const { t } = useT()
+
+  const TRIGGER_LABELS: Record<AutomationTrigger['type'], string> = {
+    item_created: t('auto.trigger.item_created'),
+    item_updated: t('auto.trigger.item_updated'),
+    comment_added: t('auto.trigger.comment_added'),
+    scheduled: t('auto.trigger.scheduled'),
+  }
+
+  const ACTION_LABELS: Record<AutomationAction['type'], string> = {
+    notify: t('auto.action.notify'),
+    webhook: t('auto.action.webhook'),
+    send_email: t('auto.action.send_email'),
+    create_item: t('auto.action.create_item'),
+  }
 
   function handleConfigChange(key: string, value: unknown) {
     setActionConfig(prev => ({ ...prev, [key]: value }))
   }
 
   function handleSubmit() {
-    if (!name.trim()) { setError('Name is required'); return }
+    if (!name.trim()) { setError(t('auto.nameRequired')); return }
     startTransition(async () => {
       const result = await createAutomation(appId, {
         name,
@@ -71,7 +74,7 @@ function CreateModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
         <div className="modal-header">
-          <h2 className="modal-title">New Automation</h2>
+          <h2 className="modal-title">{t('auto.new')}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -79,18 +82,18 @@ function CreateModal({
           {error && <div className="alert alert-error">{error}</div>}
 
           <div className="form-group">
-            <label className="form-label">Name</label>
+            <label className="form-label">{t('auto.nameLabel')}</label>
             <input
               className="form-input"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Notify team on new item"
+              placeholder={t('auto.namePlaceholder')}
               autoFocus
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Trigger</label>
+            <label className="form-label">{t('auto.triggerLabel')}</label>
             <select
               className="form-input"
               value={triggerType}
@@ -103,7 +106,7 @@ function CreateModal({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Action</label>
+            <label className="form-label">{t('auto.actionLabel')}</label>
             <select
               className="form-input"
               value={actionType}
@@ -122,10 +125,10 @@ function CreateModal({
           {actionType === 'notify' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px', background: 'var(--bg-hover)', borderRadius: 8 }}>
               <div className="form-group">
-                <label className="form-label">Message</label>
+                <label className="form-label">{t('auto.messageLabel')}</label>
                 <input
                   className="form-input"
-                  placeholder="Notification message"
+                  placeholder={t('auto.messagePlaceholder')}
                   value={String(actionConfig.message ?? '')}
                   onChange={e => handleConfigChange('message', e.target.value)}
                 />
@@ -137,7 +140,7 @@ function CreateModal({
                   onChange={e => handleConfigChange('notifyAll', e.target.checked)}
                   style={{ accentColor: 'var(--brand-500)' }}
                 />
-                Notify all workspace members
+                {t('auto.notifyAll')}
               </label>
             </div>
           )}
@@ -145,11 +148,11 @@ function CreateModal({
           {actionType === 'webhook' && (
             <div style={{ padding: '12px', background: 'var(--bg-hover)', borderRadius: 8 }}>
               <div className="form-group">
-                <label className="form-label">Webhook URL</label>
+                <label className="form-label">{t('auto.webhookUrl')}</label>
                 <input
                   className="form-input"
                   type="url"
-                  placeholder="https://example.com/webhook"
+                  placeholder={t('auto.webhookPlaceholder')}
                   value={String(actionConfig.url ?? '')}
                   onChange={e => handleConfigChange('url', e.target.value)}
                 />
@@ -159,9 +162,9 @@ function CreateModal({
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>Cancel</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={isPending}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={isPending || !name.trim()}>
-            {isPending ? 'Creating…' : 'Create automation'}
+            {isPending ? t('auto.creating') : t('auto.createBtn')}
           </button>
         </div>
       </div>
@@ -181,6 +184,21 @@ function AutomationCard({
   const [isPending, startTransition] = useTransition()
   const [confirmDel, setConfirmDel] = useState(false)
   const [testState, setTestState] = useState<TestState>({ status: 'idle' })
+  const { t } = useT()
+
+  const TRIGGER_LABELS: Record<AutomationTrigger['type'], string> = {
+    item_created: t('auto.trigger.item_created'),
+    item_updated: t('auto.trigger.item_updated'),
+    comment_added: t('auto.trigger.comment_added'),
+    scheduled: t('auto.trigger.scheduled'),
+  }
+
+  const ACTION_LABELS: Record<AutomationAction['type'], string> = {
+    notify: t('auto.action.notify'),
+    webhook: t('auto.action.webhook'),
+    send_email: t('auto.action.send_email'),
+    create_item: t('auto.action.create_item'),
+  }
 
   let trigger: AutomationTrigger | null = null
   let actions: AutomationAction[] = []
@@ -209,7 +227,7 @@ function AutomationCard({
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{automation.name}</div>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
-              When <strong style={{ color: 'var(--text-secondary)' }}>{trigger ? TRIGGER_LABELS[trigger.type] : '?'}</strong>
+              {t('auto.when')} <strong style={{ color: 'var(--text-secondary)' }}>{trigger ? TRIGGER_LABELS[trigger.type] : '?'}</strong>
               {' → '}
               {actions.map((a, i) => (
                 <span key={i}>
@@ -227,7 +245,7 @@ function AutomationCard({
             className={`toggle-switch ${automation.isActive ? 'on' : 'off'}`}
             onClick={toggleActive}
             disabled={isPending}
-            title={automation.isActive ? 'Disable' : 'Enable'}
+            title={automation.isActive ? t('auto.disable') : t('auto.enable')}
           >
             <div className="toggle-thumb" />
           </button>
@@ -235,8 +253,8 @@ function AutomationCard({
           {/* Delete */}
           {confirmDel ? (
             <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-danger btn-sm" onClick={handleDelete} disabled={isPending}>Delete</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>Cancel</button>
+              <button className="btn btn-danger btn-sm" onClick={handleDelete} disabled={isPending}>{t('common.delete')}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>{t('common.cancel')}</button>
             </div>
           ) : (
             <button
@@ -259,9 +277,9 @@ function AutomationCard({
           const cfg = a.config as { message?: string; notifyAll?: boolean }
           return (
             <div key={i} className="automation-config-preview">
-              <span style={{ color: 'var(--text-disabled)', fontSize: 11 }}>Message:</span>{' '}
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{cfg.message || '(no message)'}</span>
-              {cfg.notifyAll && <span className="tag" style={{ marginLeft: 6 }}>All members</span>}
+              <span style={{ color: 'var(--text-disabled)', fontSize: 11 }}>{t('auto.messageLabel')}:</span>{' '}
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{cfg.message || t('auto.noMessage')}</span>
+              {cfg.notifyAll && <span className="tag" style={{ marginLeft: 6 }}>{t('auto.allMembers')}</span>}
             </div>
           )
         }
@@ -272,7 +290,7 @@ function AutomationCard({
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ color: 'var(--text-disabled)', fontSize: 11 }}>URL:</span>{' '}
-                  <span style={{ fontSize: 12, color: 'var(--brand-400)', wordBreak: 'break-all' }}>{cfg.url || '(no url)'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--brand-400)', wordBreak: 'break-all' }}>{cfg.url || t('auto.noUrl')}</span>
                 </div>
                 {cfg.url && (
                   <button
@@ -288,18 +306,18 @@ function AutomationCard({
                       })
                     }}
                   >
-                    {testState.status === 'loading' ? 'Sending…' : 'Test'}
+                    {testState.status === 'loading' ? t('auto.sending') : t('auto.test')}
                   </button>
                 )}
               </div>
               {testState.status === 'ok' && (
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>
-                  ✓ Delivered (HTTP {testState.code})
+                  {t('auto.delivered', { code: testState.code })}
                 </div>
               )}
               {testState.status === 'err' && (
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--error)', fontWeight: 600 }}>
-                  ✗ Failed: {testState.msg}
+                  {t('auto.failed', { msg: testState.msg })}
                 </div>
               )}
             </div>
@@ -315,31 +333,32 @@ function AutomationCard({
 
 export default function AutomationsPanel({ appId, automations }: Props) {
   const [showCreate, setShowCreate] = useState(false)
+  const { t } = useT()
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 700 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Automations</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{t('auto.title')}</h1>
           <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginTop: 4 }}>
-            Automate actions when items change or events occur.
+            {t('auto.desc')}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          New Automation
+          {t('auto.new')}
         </button>
       </div>
 
       {automations.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">⚡</div>
-          <p className="empty-state-title">No automations yet</p>
-          <p className="empty-state-desc">Create an automation to trigger actions when items are created, updated, or comments are added.</p>
+          <p className="empty-state-title">{t('auto.empty')}</p>
+          <p className="empty-state-desc">{t('auto.emptyDesc')}</p>
           <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setShowCreate(true)}>
-            Create first automation
+            {t('auto.createFirst')}
           </button>
         </div>
       ) : (

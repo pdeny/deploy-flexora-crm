@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { createWorkspace } from '@/lib/actions/workspace'
+import { useT } from '@/contexts/LanguageContext'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
 const EMOJIS = ['🏢', '🚀', '⚡', '🔥', '💎', '🎯', '🌟', '🏆', '🎨', '🛠️', '📊', '💡', '🌐', '🔬', '🎮']
 
 export default function CreateWorkspaceButton() {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [color, setColor] = useState(COLORS[0])
@@ -39,14 +41,14 @@ export default function CreateWorkspaceButton() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
         </svg>
-        New Workspace
+        {t('workspace.new')}
       </button>
 
       {open && (
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && handleClose()}>
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">Create Workspace</h2>
+              <h2 className="modal-title">{t('workspace.createTitle')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={handleClose} aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -63,7 +65,7 @@ export default function CreateWorkspaceButton() {
                 )}
 
                 <div className="form-group">
-                  <label className="form-label">Icon</label>
+                  <label className="form-label">{t('common.icon')}</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {EMOJIS.map(e => (
                       <button
@@ -80,17 +82,17 @@ export default function CreateWorkspaceButton() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="ws-name">Name <span style={{ color: 'var(--error)' }}>*</span></label>
-                  <input id="ws-name" className="form-input" name="name" placeholder="My Workspace" required autoFocus />
+                  <label className="form-label" htmlFor="ws-name">{t('common.name')} <span style={{ color: 'var(--error)' }}>*</span></label>
+                  <input id="ws-name" className="form-input" name="name" placeholder={t('workspace.namePlaceholder')} required autoFocus />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="ws-desc">Description</label>
-                  <input id="ws-desc" className="form-input" name="description" placeholder="What is this workspace for?" />
+                  <label className="form-label" htmlFor="ws-desc">{t('common.description')}</label>
+                  <input id="ws-desc" className="form-input" name="description" placeholder={t('workspace.descPlaceholder')} />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Color</label>
+                  <label className="form-label">{t('common.color')}</label>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {COLORS.map(c => (
                       <button
@@ -108,11 +110,11 @@ export default function CreateWorkspaceButton() {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={handleClose}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={handleClose}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary" disabled={isPending}>
                   {isPending
-                    ? <><span className="spinner" style={{ width: 13, height: 13 }} /> Creating…</>
-                    : 'Create Workspace'}
+                    ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('common.creating')}</>
+                    : t('workspace.createTitle')}
                 </button>
               </div>
             </form>

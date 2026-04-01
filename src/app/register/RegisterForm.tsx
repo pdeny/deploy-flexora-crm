@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { register } from '@/lib/actions/auth'
+import { useT } from '@/contexts/LanguageContext'
 
 export default function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const { t } = useT()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,41 +31,41 @@ export default function RegisterForm() {
       )}
 
       <div className="rf-field">
-        <label className="rf-label" htmlFor="rf-name">Full Name</label>
+        <label className="rf-label" htmlFor="rf-name">{t('auth.fullName')}</label>
         <div className="rf-input-wrap">
           <svg className="rf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
           </svg>
-          <input id="rf-name" className="rf-input" type="text" name="name" placeholder="Jane Smith" required autoComplete="name" autoFocus />
+          <input id="rf-name" className="rf-input" type="text" name="name" placeholder={t('auth.fullNamePlaceholder')} required autoComplete="name" autoFocus />
         </div>
       </div>
 
       <div className="rf-field">
-        <label className="rf-label" htmlFor="rf-email">Work Email</label>
+        <label className="rf-label" htmlFor="rf-email">{t('auth.workEmail')}</label>
         <div className="rf-input-wrap">
           <svg className="rf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
           </svg>
-          <input id="rf-email" className="rf-input" type="email" name="email" placeholder="jane@company.com" required autoComplete="email" />
+          <input id="rf-email" className="rf-input" type="email" name="email" placeholder={t('auth.workEmailPlaceholder')} required autoComplete="email" />
         </div>
       </div>
 
       <div className="rf-field">
-        <label className="rf-label" htmlFor="rf-password">Password</label>
+        <label className="rf-label" htmlFor="rf-password">{t('auth.password')}</label>
         <div className="rf-input-wrap">
           <svg className="rf-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <input id="rf-password" className="rf-input" type="password" name="password" placeholder="Min. 8 characters" required autoComplete="new-password" />
+          <input id="rf-password" className="rf-input" type="password" name="password" placeholder={t('auth.passwordMinPlaceholder')} required autoComplete="new-password" />
         </div>
       </div>
 
       <button type="submit" className="rf-btn" disabled={isPending}>
         {isPending ? (
-          <><span className="rf-spinner" /> Creating account…</>
+          <><span className="rf-spinner" /> {t('auth.creatingAccount')}</>
         ) : (
           <>
-            Create free account
+            {t('auth.createAccount')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
@@ -72,7 +74,7 @@ export default function RegisterForm() {
         <span className="rf-btn-shine" />
       </button>
 
-      <p className="rf-terms">By creating an account you agree to our Terms of Service</p>
+      <p className="rf-terms">{t('auth.terms')}</p>
 
       <style>{`
         .rf-form { display:flex; flex-direction:column; gap:16px; }

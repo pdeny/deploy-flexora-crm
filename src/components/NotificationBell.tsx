@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { markAllNotificationsRead, markNotificationRead } from '@/lib/actions/notifications'
 import { formatRelative } from '@/lib/utils'
+import { useT } from '@/contexts/LanguageContext'
 
 type NotificationItem = {
   id: string
@@ -24,6 +25,7 @@ export default function NotificationBell({ notifications, unreadCount }: Props) 
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const ref = useRef<HTMLDivElement>(null)
+  const { t } = useT()
 
   // Close on outside click
   useEffect(() => {
@@ -66,8 +68,8 @@ export default function NotificationBell({ notifications, unreadCount }: Props) 
       <button
         className="notif-bell-btn"
         onClick={() => setOpen(o => !o)}
-        aria-label="Notifications"
-        title="Notifications"
+        aria-label={t('notif.title')}
+        title={t('notif.title')}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -81,7 +83,7 @@ export default function NotificationBell({ notifications, unreadCount }: Props) 
       {open && (
         <div className="notif-dropdown">
           <div className="notif-dropdown-header">
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Notifications</span>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>{t('notif.title')}</span>
             {unreadCount > 0 && (
               <button
                 className="btn btn-ghost btn-sm"
@@ -89,7 +91,7 @@ export default function NotificationBell({ notifications, unreadCount }: Props) 
                 disabled={isPending}
                 style={{ fontSize: 11, color: 'var(--brand-400)', padding: '3px 8px' }}
               >
-                Mark all read
+                {t('notif.markAllRead')}
               </button>
             )}
           </div>
@@ -97,7 +99,7 @@ export default function NotificationBell({ notifications, unreadCount }: Props) 
           <div className="notif-list">
             {notifications.length === 0 ? (
               <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-disabled)', fontSize: 13 }}>
-                No notifications yet
+                {t('notif.empty')}
               </div>
             ) : (
               notifications.map(notif => (

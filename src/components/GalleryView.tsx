@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
+import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
   id: string
@@ -94,14 +95,15 @@ function FieldValue({ value, field }: { value: unknown; field: AppField }) {
 }
 
 export default function GalleryView({ app, items, fields, workspaceId }: Props) {
+  const { t } = useT()
   const router = useRouter()
 
   if (items.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🖼</div>
-        <p className="empty-state-title">No items yet</p>
-        <p className="empty-state-desc">Click &quot;Add Item&quot; to create your first entry.</p>
+        <p className="empty-state-title">{t('empty.gallery.noItems')}</p>
+        <p className="empty-state-desc">{t('empty.gallery.desc')}</p>
       </div>
     )
   }
@@ -160,7 +162,7 @@ export default function GalleryView({ app, items, fields, workspaceId }: Props) 
                   </div>
                 ))}
                 {nonEmptyFields.length > 6 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>+{nonEmptyFields.length - 6} more fields</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>{t('gallery.moreFields', { n: nonEmptyFields.length - 6 })}</span>
                 )}
               </div>
             )}

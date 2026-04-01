@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { createApiKey, deleteApiKey } from '@/lib/actions/apikeys'
 import { formatRelative } from '@/lib/utils'
+import { useT } from '@/contexts/LanguageContext'
 
 type KeyMeta = {
   id: string
@@ -25,6 +26,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
   const [copiedKey, setCopiedKey] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useT()
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -63,10 +65,9 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>API Keys</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('api.title')}</div>
         <p style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: 0 }}>
-          Use API keys to access this workspace&apos;s data programmatically via the REST API.
-          Keys are scoped to this workspace. Keep them secret.
+          {t('api.desc')}
         </p>
       </div>
 
@@ -76,12 +77,12 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
           className="form-input"
           value={newName}
           onChange={e => setNewName(e.target.value)}
-          placeholder="Key name (e.g. Production, Zapier)"
+          placeholder={t('api.namePlaceholder')}
           style={{ flex: 1 }}
           required
         />
         <button type="submit" className="btn btn-primary btn-sm" disabled={isPending || !newName.trim()}>
-          {isPending ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Creating…</> : '+ Generate'}
+          {isPending ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('api.creating')}</> : t('api.generate')}
         </button>
       </form>
       {error && <p style={{ fontSize: 12, color: 'var(--error)', margin: '-12px 0 0' }}>{error}</p>}
@@ -100,7 +101,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)' }}>
-              Copy your key now — it won&apos;t be shown again.
+              {t('api.copyNow')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -113,7 +114,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
               {revealedKey.key}
             </code>
             <button className="btn btn-secondary btn-sm" onClick={copyKey} style={{ flexShrink: 0, fontSize: 11 }}>
-              {copiedKey ? '✓ Copied' : 'Copy'}
+              {copiedKey ? t('api.copied') : t('api.copy')}
             </button>
             <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setRevealedKey(null)} style={{ flexShrink: 0 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -131,7 +132,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
           color: 'var(--text-tertiary)', fontSize: 13,
           border: '1px dashed var(--border-subtle)', borderRadius: 10,
         }}>
-          No API keys yet.
+          {t('api.empty')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -159,8 +160,8 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{k.name}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
                   <code style={{ fontFamily: 'monospace', color: 'var(--text-disabled)' }}>{k.prefix}…</code>
-                  {' · '}created {formatRelative(k.createdAt)}
-                  {k.lastUsedAt && <> · last used {formatRelative(k.lastUsedAt)}</>}
+                  {' · '}{t('api.created', { time: formatRelative(k.createdAt) })}
+                  {k.lastUsedAt && <> · {t('api.lastUsed', { time: formatRelative(k.lastUsedAt) })}</>}
                 </div>
               </div>
               <button
@@ -168,7 +169,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
                 onClick={() => handleDelete(k.id)}
                 disabled={deletingId === k.id}
                 style={{ color: 'var(--error)', opacity: 0.7 }}
-                title="Revoke key"
+                title={t('api.revokeKey')}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -189,7 +190,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
         lineHeight: 1.7,
         color: 'var(--text-tertiary)',
       }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>Quick reference</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>{t('api.quickRef')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
             ['GET', `/api/v1/workspaces/{workspaceId}/apps`, 'List apps'],
@@ -211,7 +212,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
           ))}
         </div>
         <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-disabled)' }}>
-          All endpoints require: <code style={{ fontFamily: 'monospace' }}>Authorization: Bearer &lt;api_key&gt;</code>
+          <code style={{ fontFamily: 'monospace' }}>{t('api.authRequired')}</code>
         </div>
       </div>
     </div>

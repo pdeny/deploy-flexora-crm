@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { searchItems } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
+import { useT } from '@/contexts/LanguageContext'
 
 type SearchResultItem = {
   id: string
@@ -20,6 +21,7 @@ type SearchResults = {
 }
 
 export default function SearchModal() {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults | null>(null)
@@ -55,23 +57,27 @@ export default function SearchModal() {
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // Focus input on open
+  // Focus input on open and reset state
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 30)
-      setQuery('')
-      setResults(null)
-      setSelectedIdx(0)
+      setTimeout(() => {
+        inputRef.current?.focus()
+        setQuery('')
+        setResults(null)
+        setSelectedIdx(0)
+      }, 30)
     }
   }, [open])
 
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) { setResults(null); setSelectedIdx(0); return }
+    if (!query.trim()) {
+      setTimeout(() => { setResults(null); setSelectedIdx(0) }, 0)
+      return
+    }
     debounceRef.current = setTimeout(() => {
       startTransition(async () => {
         const res = await searchItems(query)
@@ -124,7 +130,7 @@ export default function SearchModal() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span>Search…</span>
+        <span>{t('search.placeholder')}</span>
         <kbd>⌘K</kbd>
       </button>
     )
@@ -144,7 +150,7 @@ export default function SearchModal() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search items, apps…"
+            placeholder={t('search.placeholder')}
             autoComplete="off"
           />
           {isPending && <span className="spinner" style={{ width: 14, height: 14, flexShrink: 0 }} />}
@@ -158,17 +164,17 @@ export default function SearchModal() {
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0.2 }}>
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <p>Type to search across your workspaces</p>
+              <p>{t('search.hint')}</p>
             </div>
           ) : results && allResults.length === 0 ? (
             <div className="search-empty">
-              <p>No results for &quot;<strong>{query}</strong>&quot;</p>
+              <p>{t('search.noResults', { query })}</p>
             </div>
           ) : results ? (
             <>
               {results.apps.length > 0 && (
                 <div>
-                  <div className="search-section-label">Apps</div>
+                  <div className="search-section-label">{t('search.apps')}</div>
                   {results.apps.map((app, idx) => (
                     <button
                       key={app.id}
@@ -193,7 +199,7 @@ export default function SearchModal() {
 
               {results.items.length > 0 && (
                 <div>
-                  <div className="search-section-label">Items</div>
+                  <div className="search-section-label">{t('search.items')}</div>
                   {results.items.map((item, idx) => {
                     const absIdx = (results.apps ?? []).length + idx
                     return (
