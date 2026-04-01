@@ -8,6 +8,7 @@ import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
 import type { FilterRule } from '@/lib/filters'
 import ViewToggle from '@/components/ViewToggle'
+import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 import FilterBar from '@/components/FilterBar'
 import SortDropdown from '@/components/SortDropdown'
 import ShareLinkModal from '@/components/ShareLinkModal'
@@ -128,6 +129,7 @@ export default function AppHeader({
   const [newFieldType, setNewFieldType] = useState<FieldType>('text')
   const [newOptions, setNewOptions]   = useState<CategoryOption[]>([])
   const [newOptionLabel, setNewOptionLabel] = useState('')
+  const [editOptLabel, setEditOptLabel] = useState('')
   const [itemData, setItemData]       = useState<Record<string, unknown>>({})
   const [itemError, setItemError]     = useState<string | null>(null)
   const [isPendingFields, startFields] = useTransition()
@@ -963,6 +965,55 @@ export default function AppHeader({
                                   </>
                                 )
                               })()}
+                              {(f.type === 'category' || f.type === 'multiselect') && (
+                                <div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                                    {t('header.options')}
+                                  </div>
+                                  {(f.options ?? []).length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                                      {(f.options ?? []).map(o => (
+                                        <span key={o.id} style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                                          padding: '2px 6px 2px 8px', borderRadius: 9999,
+                                          fontSize: 11, fontWeight: 600,
+                                          background: o.color + '22', color: o.color, border: `1px solid ${o.color}44`,
+                                        }}>
+                                          {o.label}
+                                          <button type="button" onClick={() => updateField(f.id, { options: (f.options ?? []).filter(x => x.id !== o.id) })}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1, fontSize: 13 }}>×</button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <input
+                                      className="form-input"
+                                      value={editOptLabel}
+                                      onChange={e => setEditOptLabel(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key !== 'Enter' || !editOptLabel.trim()) return
+                                        e.preventDefault()
+                                        const opts = f.options ?? []
+                                        updateField(f.id, { options: [...opts, { id: `opt-${Date.now()}`, label: editOptLabel.trim(), color: OPTION_COLORS[opts.length % OPTION_COLORS.length] }] })
+                                        setEditOptLabel('')
+                                      }}
+                                      placeholder={t('header.optionLabel')}
+                                      style={{ maxWidth: 200, fontSize: 12 }}
+                                    />
+                                    <button className="btn btn-secondary btn-sm" type="button"
+                                      disabled={!editOptLabel.trim()}
+                                      onClick={() => {
+                                        if (!editOptLabel.trim()) return
+                                        const opts = f.options ?? []
+                                        updateField(f.id, { options: [...opts, { id: `opt-${Date.now()}`, label: editOptLabel.trim(), color: OPTION_COLORS[opts.length % OPTION_COLORS.length] }] })
+                                        setEditOptLabel('')
+                                      }}>
+                                      {t('header.addOption')}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>
                                   {t('header.fieldDesc')}
@@ -985,13 +1036,12 @@ export default function AppHeader({
               </div>
               <div className="add-field-panel">
                 <div className="fields-section-label">{t('header.addField')}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px auto', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 10 }}>
                   <input className="form-input" value={newFieldName} onChange={e => setNewFieldName(e.target.value)} placeholder={t('header.fieldName')}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), newFieldName.trim() && addField())} />
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), newFieldName.trim() && (newFieldType !== 'category' && newFieldType !== 'multiselect') && addField())} />
                   <select className="form-input form-select" value={newFieldType} onChange={e => { setNewFieldType(e.target.value as FieldType); setNewOptions([]) }}>
                     {FIELD_TYPE_DEFS.map(ft => <option key={ft.value} value={ft.value}>{ft.icon} {t(ft.labelKey)}</option>)}
                   </select>
-                  <button className="btn btn-secondary" onClick={addField} disabled={!newFieldName.trim()}>{t('header.addFieldBtn')}</button>
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 10 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
@@ -1118,7 +1168,15 @@ export default function AppHeader({
                     {newOptions.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
                         {newOptions.map(o => (
-                          <span key={o.id} style={{ padding: '3px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 600, background: o.color + '22', color: o.color, border: `1px solid ${o.color}44` }}>{o.label}</span>
+                          <span key={o.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '2px 6px 2px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
+                            background: o.color + '22', color: o.color, border: `1px solid ${o.color}44`,
+                          }}>
+                            {o.label}
+                            <button type="button" onClick={() => setNewOptions(prev => prev.filter(x => x.id !== o.id))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1, fontSize: 13 }}>×</button>
+                          </span>
                         ))}
                       </div>
                     )}
@@ -1130,6 +1188,9 @@ export default function AppHeader({
                     </div>
                   </div>
                 )}
+                <div style={{ marginTop: 12 }}>
+                  <button className="btn btn-secondary" onClick={addField} disabled={!newFieldName.trim()}>{t('header.addFieldBtn')}</button>
+                </div>
               </div>
             </div>
             <div className="modal-footer">
@@ -1393,23 +1454,11 @@ function ItemFieldInput({ field, onChange }: { field: AppField; onChange: (v: un
   }
   if (field.type === 'multiselect' && field.options) {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {field.options.map(o => {
-          const sel = multiSel.includes(o.id)
-          return (
-            <button key={o.id} type="button" onClick={() => {
-              const next = sel ? multiSel.filter(x => x !== o.id) : [...multiSel, o.id]
-              setMultiSel(next)
-              onChange(next)
-            }} style={{
-              padding: '2px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, border: '1px solid',
-              background: sel ? o.color + '33' : 'var(--bg-overlay)',
-              borderColor: sel ? o.color : 'var(--border-default)',
-              color: sel ? o.color : 'var(--text-secondary)', cursor: 'pointer',
-            }}>{o.label}</button>
-          )
-        })}
-      </div>
+      <MultiselectCombobox
+        options={field.options}
+        value={multiSel}
+        onChange={next => { setMultiSel(next); onChange(next) }}
+      />
     )
   }
   if (field.type === 'rating') {

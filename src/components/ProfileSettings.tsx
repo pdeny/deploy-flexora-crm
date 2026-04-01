@@ -158,33 +158,37 @@ export default function ProfileSettings({ user }: Props) {
             </button>
           </div>
 
-          <style>{`
-            .settings-tab-bar {
-              display: flex;
-              gap: 2px;
-              border-bottom: 1px solid var(--border-subtle);
-            }
-            .settings-tab-btn {
-              padding: 10px 18px;
-              font-size: 13px;
-              font-weight: 600;
-              font-family: inherit;
-              background: none;
-              border: none;
-              border-bottom: 2px solid transparent;
-              color: var(--text-tertiary);
-              cursor: pointer;
-              transition: all var(--transition-fast);
-              margin-bottom: -1px;
-            }
-            .settings-tab-btn:hover { color: var(--text-primary); }
-            .settings-tab-btn.active {
-              color: var(--brand-400);
-              border-bottom-color: var(--brand-500);
-            }
-          `}</style>
         </form>
       )}
+      <style>{`
+        .settings-tab-bar {
+          display: flex;
+          gap: 2px;
+          border-bottom: 1px solid var(--border-default);
+        }
+        .settings-tab-btn {
+          padding: 10px 18px;
+          font-size: 13px;
+          font-weight: 600;
+          font-family: inherit;
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          margin-bottom: -1px;
+        }
+        .settings-tab-btn:hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
+        }
+        .settings-tab-btn.active {
+          color: var(--brand-400);
+          border-bottom-color: var(--brand-500);
+          background: none;
+        }
+      `}</style>
     </div>
   )
 }

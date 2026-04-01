@@ -9,6 +9,7 @@ import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
 import { computeFieldFromLinkedItems } from '@/lib/rollup'
 import RelationField from '@/components/RelationField'
+import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 
 type CommentType = {
   id: string
@@ -109,23 +110,11 @@ function FieldEditor({
   if (field.type === 'multiselect' && field.options) {
     const cur: string[] = Array.isArray(value) ? value as string[] : []
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {field.options.map(o => {
-          const active = cur.includes(o.id)
-          return (
-            <button key={o.id} type="button" onClick={() => {
-              const next = active ? cur.filter(x => x !== o.id) : [...cur, o.id]
-              onChange(next)
-            }} style={{
-              padding: '4px 12px', borderRadius: 9999, fontSize: 12, fontWeight: 600,
-              border: `1.5px solid ${o.color}${active ? '99' : '33'}`,
-              background: active ? o.color + '22' : 'transparent',
-              color: active ? o.color : 'var(--text-disabled)', cursor: 'pointer',
-              transition: 'all var(--transition-fast)',
-            }}>{o.label}</button>
-          )
-        })}
-      </div>
+      <MultiselectCombobox
+        options={field.options}
+        value={cur}
+        onChange={onChange}
+      />
     )
   }
   if (field.type === 'rating') {

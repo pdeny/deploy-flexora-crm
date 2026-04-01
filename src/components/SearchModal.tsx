@@ -338,12 +338,12 @@ export default function SearchModal() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 12px;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
+          padding: 6px 14px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
           border-radius: 8px;
-          color: var(--text-tertiary);
-          font-size: 12px;
+          color: var(--text-secondary);
+          font-size: 13px;
           font-family: inherit;
           cursor: pointer;
           transition: all var(--transition-fast);
@@ -351,16 +351,17 @@ export default function SearchModal() {
         }
         .search-trigger-btn:hover {
           background: var(--bg-hover);
-          color: var(--text-secondary);
-          border-color: var(--border-strong);
+          color: var(--text-primary);
+          border-color: var(--brand-500);
         }
         .search-trigger-btn kbd {
           font-size: 10px;
-          padding: 1px 5px;
-          background: var(--bg-overlay);
-          border: 1px solid var(--border-strong);
+          padding: 2px 6px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
           border-radius: 4px;
           font-family: inherit;
+          color: var(--text-tertiary);
         }
       `}</style>
     </div>

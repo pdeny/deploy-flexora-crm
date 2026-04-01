@@ -6,6 +6,7 @@ import type { AppField } from '@/lib/types'
 import type { FormConfig } from '@/lib/actions/settings'
 import { submitFormEntry } from '@/lib/actions/settings'
 import { useT } from '@/contexts/LanguageContext'
+import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 
 type AppInfo = {
   name: string
@@ -95,31 +96,16 @@ function FieldInput({
     case 'category': {
       const opts = field.options ?? []
       return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {opts.map(opt => {
-            const sel = value === opt.id
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onChange(sel ? '' : opt.id)}
-                style={{
-                  padding: '5px 14px',
-                  borderRadius: 9999,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: `1.5px solid ${opt.color}${sel ? '' : '55'}`,
-                  background: sel ? opt.color + '22' : 'transparent',
-                  color: sel ? opt.color : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 120ms',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
+        <select
+          className="form-input form-select"
+          value={String(value ?? '')}
+          onChange={e => onChange(e.target.value)}
+        >
+          <option value="">—</option>
+          {opts.map(opt => (
+            <option key={opt.id} value={opt.id}>{opt.label}</option>
+          ))}
+        </select>
       )
     }
 
@@ -127,34 +113,11 @@ function FieldInput({
       const opts = field.options ?? []
       const selected: string[] = Array.isArray(value) ? value as string[] : []
       return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {opts.map(opt => {
-            const sel = selected.includes(opt.id)
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  const next = sel ? selected.filter(id => id !== opt.id) : [...selected, opt.id]
-                  onChange(next)
-                }}
-                style={{
-                  padding: '5px 14px',
-                  borderRadius: 9999,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: `1.5px solid ${opt.color}${sel ? '' : '55'}`,
-                  background: sel ? opt.color + '22' : 'transparent',
-                  color: sel ? opt.color : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 120ms',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
+        <MultiselectCombobox
+          options={opts}
+          value={selected}
+          onChange={onChange}
+        />
       )
     }
 

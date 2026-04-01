@@ -6,6 +6,7 @@ import type { AppField, ColorRule } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
 import { deleteItem, duplicateItem, updateItem, bulkDeleteItems, bulkUpdateField, reorderItems } from '@/lib/actions/workspace'
+import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
@@ -216,22 +217,12 @@ function InlineEditor({
 
   if (field.type === 'multiselect' && field.options) {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }} onClick={e => e.stopPropagation()}>
-        {field.options.map(o => {
-          const active = multiSel.includes(o.id)
-          return (
-            <button key={o.id} type="button" onClick={() => {
-              const next = active ? multiSel.filter(x => x !== o.id) : [...multiSel, o.id]
-              setMultiSel(next)
-              onSave(next)
-            }} style={{
-              padding: '2px 8px', borderRadius: 9999, fontSize: 10, fontWeight: 700,
-              border: `1px solid ${o.color}${active ? '88' : '33'}`,
-              background: active ? o.color + '33' : 'transparent',
-              color: active ? o.color : 'var(--text-disabled)', cursor: 'pointer',
-            }}>{o.label}</button>
-          )
-        })}
+      <div onClick={e => e.stopPropagation()}>
+        <MultiselectCombobox
+          options={field.options}
+          value={multiSel}
+          onChange={next => { setMultiSel(next); onSave(next) }}
+        />
       </div>
     )
   }
