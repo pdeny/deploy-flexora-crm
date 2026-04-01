@@ -7,6 +7,7 @@ import { useT } from '@/contexts/LanguageContext'
 import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
+import { computeFieldFromLinkedItems } from '@/lib/rollup'
 import RelationField from '@/components/RelationField'
 
 type CommentType = {
@@ -49,8 +50,8 @@ type ActivityLogType = {
 
 type Props = {
   item: ItemType
-  workspaceApps?: { id: string; name: string; iconEmoji: string }[]
-  linkedByField?: Record<string, { id: string; title: string }[]>
+  workspaceApps?: { id: string; name: string; iconEmoji: string; fieldsJson?: string }[]
+  linkedByField?: Record<string, { id: string; title: string; dataJson: string }[]>
   fields: AppField[]
   user: UserType
   workspaceId: string
@@ -508,9 +509,33 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                       {f.type === 'calculation' && (
                         <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>{t('detail.formula')}</span>
                       )}
+                      {f.type === 'lookup' && (
+                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>{t('detail.lookup')}</span>
+                      )}
+                      {f.type === 'rollup' && (
+                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>{t('detail.rollup')}</span>
+                      )}
                     </label>
                     <div className="item-field-value">
-                      {f.type === 'relation' ? (() => {
+                      {(f.type === 'lookup' || f.type === 'rollup') ? (() => {
+                        const linked = (linkedByField?.[f.linkedFieldId ?? ''] ?? [])
+                        const computed = computeFieldFromLinkedItems(f, linked)
+                        const label = f.type === 'rollup' ? `${f.rollupFunction ?? 'COUNT'} ` : ''
+                        return (
+                          <span style={{
+                            fontSize: 14, fontWeight: 600,
+                            fontFamily: f.type === 'rollup' ? 'monospace' : undefined,
+                            color: 'var(--text-primary)',
+                            padding: '6px 10px',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 6,
+                            display: 'inline-block',
+                          }}>
+                            {computed === null ? '—' : `${label}${computed}`}
+                          </span>
+                        )
+                      })() : f.type === 'relation' ? (() => {
                         const relatedApp = workspaceApps.find(a => a.id === f.relatedAppId)
                         if (!f.relatedAppId || !relatedApp) {
                           return <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>{t('detail.noLinkedApp')}</span>
@@ -781,6 +806,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
           display: flex;
           border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
+          background: var(--bg-elevated);
         }
         .sidebar-tab {
           flex: 1;
@@ -791,7 +817,7 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
           background: none;
           border: none;
           border-bottom: 2px solid transparent;
-          color: var(--text-tertiary);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all var(--transition-fast);
           display: flex;

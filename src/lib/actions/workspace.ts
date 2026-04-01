@@ -102,6 +102,23 @@ export async function updateAppFields(appId: string, fieldsJson: string) {
   return { success: true }
 }
 
+export async function saveColorRules(appId: string, colorRulesJson: string) {
+  const user = await requireUser()
+
+  const app = await prisma.app.findUnique({
+    where: { id: appId },
+    include: { workspace: { include: { members: true } } },
+  })
+  if (!app) return { error: 'App not found' }
+
+  const isMember = app.workspace.members.some(m => m.userId === user.id)
+  if (!isMember) return { error: 'Unauthorized' }
+
+  await prisma.app.update({ where: { id: appId }, data: { colorRulesJson } })
+  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  return { success: true }
+}
+
 export async function createItem(formData: FormData) {
   const user = await requireUser()
   const appId = formData.get('appId') as string
@@ -328,6 +345,22 @@ export async function bulkDeleteItems(itemIds: string[]) {
   const appPaths = [...new Set(items.map(i => `/dashboard/${i.app.workspaceId}/${i.appId}`))]
   for (const path of appPaths) revalidatePath(path)
   return { success: true, count: itemIds.length }
+}
+
+export async function reorderItems(appId: string, orderedIds: string[]) {
+  const user = await requireUser()
+  if (!orderedIds.length) return { error: 'No items' }
+  const app = await prisma.app.findUnique({
+    where: { id: appId },
+    include: { workspace: { include: { members: true } } },
+  })
+  if (!app) return { error: 'App not found' }
+  if (!app.workspace.members.some(m => m.userId === user.id)) return { error: 'Unauthorized' }
+  await prisma.$transaction(
+    orderedIds.map((id, i) => prisma.item.update({ where: { id }, data: { position: (i + 1) * 1000 } }))
+  )
+  revalidatePath(`/dashboard/${app.workspaceId}/${appId}`)
+  return { success: true }
 }
 
 export async function bulkUpdateField(

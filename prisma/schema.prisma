@@ -76,9 +76,10 @@ model App {
   color       String   @default("#6366f1")
   fieldsJson  String   @default("[]")
   viewType    String   @default("table")
-  shareToken     String?  @unique
-  formToken      String?  @unique
-  formFieldsJson String   @default("{}")
+  shareToken      String?  @unique
+  formToken       String?  @unique
+  formFieldsJson  String   @default("{}")
+  colorRulesJson  String   @default("[]")
   createdAt      DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -92,6 +93,7 @@ model Item {
   appId       String
   title       String
   dataJson    String   @default("{}")
+  position    Float    @default(0)
   creatorId   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

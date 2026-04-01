@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { createHash } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 
 function hashKey(key: string) {
   return createHash('sha256').update(key).digest('hex')
@@ -16,6 +17,16 @@ export async function withApiKey(
   req: NextRequest,
   handler: (authed: AuthedKey) => Promise<NextResponse>,
 ): Promise<NextResponse> {
+  // Rate limit by IP: 120 requests per minute
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = rateLimit(`api:${ip}`, { limit: 120, windowMs: 60_000 })
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    )
+  }
+
   const auth = req.headers.get('authorization') ?? ''
   const raw = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
   if (!raw) {

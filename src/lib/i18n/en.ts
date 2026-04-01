@@ -448,6 +448,8 @@ export const en: LangDict = {
   'detail.updated': 'Updated',
   'detail.fields': 'Fields',
   'detail.formula': 'formula',
+  'detail.lookup': 'lookup',
+  'detail.rollup': 'rollup',
   'detail.noLinkedApp': 'No linked app configured',
   'detail.noFields': 'No custom fields. Add fields from the app header.',
 
@@ -508,4 +510,13 @@ export const en: LangDict = {
   'header.fieldType.toggle': 'Toggle',
   'header.fieldType.calculation': 'Formula',
   'header.fieldType.relation': 'Linked Record',
+  'header.colorRules': 'Color Rules',
+  'header.fieldType.lookup': 'Lookup',
+  'header.fieldType.rollup': 'Rollup',
+  'header.linkedRelField': 'Relation field',
+  'header.lookupField': 'Display field',
+  'header.rollupFn': 'Aggregation',
+  'header.rollupField': 'Numeric field',
+  'header.chooseRelField': '— select relation field —',
+  'header.chooseLookupField': '— select field —',
 }

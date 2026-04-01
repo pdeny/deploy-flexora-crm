@@ -446,6 +446,8 @@ export const it = {
   'detail.updated': 'Aggiornato',
   'detail.fields': 'Campi',
   'detail.formula': 'formula',
+  'detail.lookup': 'lookup',
+  'detail.rollup': 'rollup',
   'detail.noLinkedApp': 'Nessuna app collegata configurata',
   'detail.noFields': 'Nessun campo personalizzato. Aggiungi campi dall\'intestazione dell\'app.',
 
@@ -506,6 +508,15 @@ export const it = {
   'header.fieldType.toggle': 'Interruttore',
   'header.fieldType.calculation': 'Formula',
   'header.fieldType.relation': 'Record collegato',
+  'header.colorRules': 'Regole colore',
+  'header.fieldType.lookup': 'Cerca valore',
+  'header.fieldType.rollup': 'Rollup',
+  'header.linkedRelField': 'Campo relazione',
+  'header.lookupField': 'Campo da mostrare',
+  'header.rollupFn': 'Aggregazione',
+  'header.rollupField': 'Campo numerico',
+  'header.chooseRelField': '— seleziona campo relazione —',
+  'header.chooseLookupField': '— seleziona campo —',
 } as const
 
 export type LangKey = keyof typeof it

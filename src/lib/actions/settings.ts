@@ -5,6 +5,8 @@ import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { randomBytes } from 'crypto'
+import { headers } from 'next/headers'
+import { rateLimit } from '@/lib/rate-limit'
 
 async function requireOwner(workspaceId: string) {
   const user = await requireUser()
@@ -191,6 +193,12 @@ export async function submitFormEntry(
   title: string,
   dataJson: string,
 ): Promise<{ success: boolean } | { error: string }> {
+  // Rate limit public form submissions: 10 per minute per IP
+  const hdrs = await headers()
+  const ip = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = rateLimit(`form:${ip}`, { limit: 10, windowMs: 60_000 })
+  if (!rl.success) return { error: 'Too many submissions. Please wait and try again.' }
+
   const app = await prisma.app.findUnique({ where: { formToken: token } })
   if (!app) return { error: 'Form not found' }
 

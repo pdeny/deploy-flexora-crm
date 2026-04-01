@@ -10,6 +10,7 @@ import TimelineView from '@/components/TimelineView'
 import type { AppField } from '@/lib/types'
 import type { FilterRule } from '@/lib/filters'
 import { applyFilters, applySort } from '@/lib/filters'
+import { computeRollupLookup } from '@/lib/rollup'
 
 export default async function AppPage({
   params,
@@ -32,13 +33,13 @@ export default async function AppPage({
         workspace: { include: { members: true } },
         items: {
           include: { creator: true, _count: { select: { comments: true, tasks: true } } },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ position: 'asc' }, { createdAt: 'desc' }],
         },
       },
     }),
     prisma.app.findMany({
       where: { workspaceId },
-      select: { id: true, name: true, iconEmoji: true },
+      select: { id: true, name: true, iconEmoji: true, fieldsJson: true },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -71,6 +72,38 @@ export default async function AppPage({
     items = applySort(items, sortField || undefined, sortDir, fields) as typeof app.items
   }
 
+  // Compute rollup/lookup values and merge into items
+  const lookupRollupFields = fields.filter(f => (f.type === 'lookup' || f.type === 'rollup') && f.linkedFieldId)
+  let finalItems: typeof items = items
+  if (lookupRollupFields.length > 0) {
+    const relFieldIds = [...new Set(lookupRollupFields.map(f => f.linkedFieldId!))]
+    const itemIds = items.map(i => i.id)
+    const [relations, linkedItemsRaw] = await Promise.all([
+      prisma.itemRelation.findMany({
+        where: { fieldId: { in: relFieldIds }, fromItemId: { in: itemIds } },
+        select: { fieldId: true, fromItemId: true, toItemId: true },
+      }),
+      (async () => {
+        const toIds = await prisma.itemRelation.findMany({
+          where: { fieldId: { in: relFieldIds }, fromItemId: { in: itemIds } },
+          select: { toItemId: true },
+        }).then(rs => [...new Set(rs.map(r => r.toItemId))])
+        return toIds.length > 0
+          ? prisma.item.findMany({ where: { id: { in: toIds } }, select: { id: true, title: true, dataJson: true } })
+          : []
+      })(),
+    ])
+    const linkedItemsMap = Object.fromEntries(linkedItemsRaw.map(li => [li.id, li]))
+    const computed = computeRollupLookup(items, fields, relations, linkedItemsMap)
+    finalItems = items.map(item => {
+      const extra = computed[item.id]
+      if (!extra || Object.keys(extra).length === 0) return item
+      let d: Record<string, unknown> = {}
+      try { d = JSON.parse(item.dataJson) } catch { /* */ }
+      return { ...item, dataJson: JSON.stringify({ ...d, ...extra }) }
+    }) as typeof items
+  }
+
   const view = (['kanban', 'gallery', 'calendar', 'timeline'].includes(sp.view ?? '') ? sp.view : 'table') as 'table' | 'kanban' | 'gallery' | 'calendar' | 'timeline'
 
   return (
@@ -84,15 +117,15 @@ export default async function AppPage({
         filterRules={filterRules}
         sortField={sortField}
         sortDir={sortDir}
-        items={items}
+        items={finalItems}
         workspaceApps={workspaceApps}
       />
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {view === 'table' && <ItemsTable app={app} items={items} fields={fields} workspaceId={workspaceId} userId={user.id} />}
-        {view === 'kanban' && <KanbanBoard app={app} items={items} fields={fields} workspaceId={workspaceId} />}
-        {view === 'gallery' && <GalleryView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
-        {view === 'calendar' && <CalendarView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
-        {view === 'timeline' && <TimelineView app={app} items={items} fields={fields} workspaceId={workspaceId} />}
+        {view === 'table' && <ItemsTable app={app} items={finalItems} fields={fields} workspaceId={workspaceId} userId={user.id} canReorder={!sortField} />}
+        {view === 'kanban' && <KanbanBoard app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
+        {view === 'gallery' && <GalleryView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
+        {view === 'calendar' && <CalendarView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
+        {view === 'timeline' && <TimelineView app={app} items={finalItems} fields={fields} workspaceId={workspaceId} />}
       </div>
     </div>
   )

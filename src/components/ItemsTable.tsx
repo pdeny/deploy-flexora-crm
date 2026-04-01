@@ -2,10 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useTransition, useRef } from 'react'
-import type { AppField } from '@/lib/types'
+import type { AppField, ColorRule } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
-import { deleteItem, duplicateItem, updateItem, bulkDeleteItems, bulkUpdateField } from '@/lib/actions/workspace'
+import { deleteItem, duplicateItem, updateItem, bulkDeleteItems, bulkUpdateField, reorderItems } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 
 type ItemRow = {
@@ -19,12 +19,13 @@ type ItemRow = {
 }
 
 type Props = {
-  app: { id: string; workspaceId: string }
+  app: { id: string; workspaceId: string; colorRulesJson?: string }
   items: ItemRow[]
   fields: AppField[]
   workspaceId: string
   userId: string
   readOnly?: boolean
+  canReorder?: boolean
 }
 
 type ContextMenu = {
@@ -117,6 +118,18 @@ function FieldCell({ value, field }: { value: unknown; field: AppField }) {
           style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-subtle)' }}
           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
+      )
+    case 'lookup':
+      return (
+        <span className="truncate" style={{ display: 'block', maxWidth: 200, fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+          {String(value)}
+        </span>
+      )
+    case 'rollup':
+      return (
+        <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand-400)' }}>
+          {typeof value === 'number' ? value.toLocaleString() : String(value)}
+        </span>
       )
     default:
       return <span className="truncate" style={{ display: 'block', maxWidth: 200 }}>{String(value)}</span>
@@ -263,6 +276,230 @@ function InlineEditor({
   )
 }
 
+// ─── Color rule evaluator ─────────────────────────────────────────────────────
+
+function evalConditionValue(itemVal: unknown, op: string, condVal: unknown, field?: AppField): boolean {
+  const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+  switch (op) {
+    case 'is_empty': return isEmpty(itemVal)
+    case 'is_not_empty': return !isEmpty(itemVal)
+    case 'equals':
+      if (field?.type === 'toggle') return Boolean(itemVal) === (condVal === 'true' || condVal === true)
+      if (field?.type === 'category') return itemVal === condVal
+      return String(itemVal ?? '').toLowerCase() === String(condVal ?? '').toLowerCase()
+    case 'not_equals':
+      if (field?.type === 'toggle') return Boolean(itemVal) !== (condVal === 'true' || condVal === true)
+      if (field?.type === 'category') return itemVal !== condVal
+      return String(itemVal ?? '').toLowerCase() !== String(condVal ?? '').toLowerCase()
+    case 'contains': return String(itemVal ?? '').toLowerCase().includes(String(condVal ?? '').toLowerCase())
+    case 'not_contains': return !String(itemVal ?? '').toLowerCase().includes(String(condVal ?? '').toLowerCase())
+    case 'gt': return Number(itemVal) > Number(condVal)
+    case 'gte': return Number(itemVal) >= Number(condVal)
+    case 'lt': return Number(itemVal) < Number(condVal)
+    case 'lte': return Number(itemVal) <= Number(condVal)
+    case 'before': {
+      const d1 = new Date(itemVal as string), d2 = new Date(condVal as string)
+      return !isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 < d2
+    }
+    case 'after': {
+      const d1 = new Date(itemVal as string), d2 = new Date(condVal as string)
+      return !isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 > d2
+    }
+    default: return false
+  }
+}
+
+function getColorRuleMatch(item: { title: string; dataJson: string }, rules: ColorRule[], fields: AppField[]): string | undefined {
+  for (const rule of rules) {
+    if (rule.conditions.length === 0) return rule.color
+    let d: Record<string, unknown> = {}
+    try { d = JSON.parse(item.dataJson) } catch { /* */ }
+    const allMatch = rule.conditions.every(cond => {
+      const itemVal = cond.fieldId === '__title__' ? item.title : d[cond.fieldId]
+      const field = fields.find(f => f.id === cond.fieldId)
+      return evalConditionValue(itemVal, cond.op, cond.value, field)
+    })
+    if (allMatch) return rule.color
+  }
+  return undefined
+}
+
+// ─── Summary row ──────────────────────────────────────────────────────────────
+
+type SummaryType = 'none' | 'count' | 'empty' | 'sum' | 'avg' | 'min' | 'max' | 'checked' | 'pct_filled'
+
+function getAvailableSummaryOpts(field: AppField): { type: SummaryType; label: string }[] {
+  const base: { type: SummaryType; label: string }[] = [
+    { type: 'none',       label: 'None' },
+    { type: 'count',      label: 'Count (non-empty)' },
+    { type: 'empty',      label: 'Count (empty)' },
+    { type: 'pct_filled', label: '% Filled' },
+  ]
+  const numeric: { type: SummaryType; label: string }[] = [
+    { type: 'sum', label: 'Sum' },
+    { type: 'avg', label: 'Average' },
+    { type: 'min', label: 'Min' },
+    { type: 'max', label: 'Max' },
+  ]
+  switch (field.type) {
+    case 'number':
+    case 'rating':
+    case 'progress':
+    case 'calculation':
+    case 'rollup':
+      return [...base, ...numeric]
+    case 'date':
+      return [...base, { type: 'min', label: 'Earliest' }, { type: 'max', label: 'Latest' }]
+    case 'toggle':
+      return [
+        { type: 'none',    label: 'None' },
+        { type: 'checked', label: 'Checked' },
+        { type: 'empty',   label: 'Unchecked' },
+        { type: 'count',   label: 'Count (non-empty)' },
+      ]
+    case 'relation':
+      return [{ type: 'none', label: 'None' }]
+    default:
+      return base
+  }
+}
+
+function computeSummaryValue(
+  items: { id: string; dataJson: string }[],
+  field: AppField,
+  type: SummaryType,
+): { label: string; value: string } | null {
+  if (type === 'none' || items.length === 0) return null
+  const values = items.map(item => {
+    let d: Record<string, unknown> = {}
+    try { d = JSON.parse(item.dataJson) } catch { /* */ }
+    return d[field.id]
+  })
+  const n = items.length
+  const isEmpty = (v: unknown) =>
+    v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+
+  switch (type) {
+    case 'count':
+      return { label: 'Count', value: String(values.filter(v => !isEmpty(v)).length) }
+    case 'empty':
+      if (field.type === 'toggle')
+        return { label: 'Unchecked', value: String(values.filter(v => !v).length) }
+      return { label: 'Empty', value: String(values.filter(isEmpty).length) }
+    case 'pct_filled': {
+      const filled = values.filter(v => !isEmpty(v)).length
+      return { label: '% Filled', value: `${Math.round((filled / n) * 100)}%` }
+    }
+    case 'checked':
+      return { label: 'Checked', value: String(values.filter(v => Boolean(v)).length) }
+    case 'sum': {
+      const nums = values.map(v => (v !== null && v !== undefined && v !== '') ? Number(v) : NaN).filter(v => !isNaN(v))
+      if (!nums.length) return { label: 'Sum', value: '—' }
+      return { label: 'Sum', value: parseFloat(nums.reduce((a, b) => a + b, 0).toFixed(4)).toString() }
+    }
+    case 'avg': {
+      const nums = values.map(v => (v !== null && v !== undefined && v !== '') ? Number(v) : NaN).filter(v => !isNaN(v))
+      if (!nums.length) return { label: 'Avg', value: '—' }
+      return { label: 'Avg', value: parseFloat((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(4)).toString() }
+    }
+    case 'min': {
+      if (field.type === 'date') {
+        const times = values.filter(v => v && typeof v === 'string').map(v => new Date(v as string).getTime()).filter(t => !isNaN(t))
+        if (!times.length) return { label: 'Earliest', value: '—' }
+        return { label: 'Earliest', value: new Date(Math.min(...times)).toLocaleDateString() }
+      }
+      const nums = values.map(v => (v !== null && v !== undefined && v !== '') ? Number(v) : NaN).filter(v => !isNaN(v))
+      if (!nums.length) return { label: 'Min', value: '—' }
+      return { label: 'Min', value: String(Math.min(...nums)) }
+    }
+    case 'max': {
+      if (field.type === 'date') {
+        const times = values.filter(v => v && typeof v === 'string').map(v => new Date(v as string).getTime()).filter(t => !isNaN(t))
+        if (!times.length) return { label: 'Latest', value: '—' }
+        return { label: 'Latest', value: new Date(Math.max(...times)).toLocaleDateString() }
+      }
+      const nums = values.map(v => (v !== null && v !== undefined && v !== '') ? Number(v) : NaN).filter(v => !isNaN(v))
+      if (!nums.length) return { label: 'Max', value: '—' }
+      return { label: 'Max', value: String(Math.max(...nums)) }
+    }
+    default:
+      return null
+  }
+}
+
+function SummaryCell({
+  field,
+  items,
+  summaryType,
+  onChange,
+}: {
+  field: AppField
+  items: { id: string; dataJson: string }[]
+  summaryType: SummaryType
+  onChange: (type: SummaryType) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function h(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  const opts = getAvailableSummaryOpts(field)
+  const result = summaryType !== 'none' ? computeSummaryValue(items, field, summaryType) : null
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={e => { e.stopPropagation(); if (opts.length > 1) setOpen(o => !o) }}
+        title={opts.length > 1 ? 'Click to change aggregate' : undefined}
+        style={{
+          cursor: opts.length > 1 ? 'pointer' : 'default',
+          padding: '3px 6px', borderRadius: 4,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 11, fontWeight: 600,
+          background: open ? 'var(--bg-overlay)' : 'transparent',
+          userSelect: 'none', transition: 'background 150ms',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {result ? (
+          <>
+            <span style={{ fontSize: 10, color: 'var(--text-disabled)', fontWeight: 400 }}>{result.label}</span>
+            <span style={{ color: 'var(--brand-400)' }}>{result.value}</span>
+          </>
+        ) : (
+          opts.length > 1 ? <span style={{ color: 'var(--text-disabled)', opacity: 0.4, fontSize: 13 }}>+</span> : null
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: 0, zIndex: 50, marginBottom: 4,
+          background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+          borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: '4px 0', minWidth: 170,
+        }}>
+          {opts.map(opt => (
+            <button
+              key={opt.type}
+              onClick={() => { onChange(opt.type); setOpen(false) }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '6px 14px', fontSize: 12, background: 'none', border: 'none',
+                color: opt.type === summaryType ? 'var(--brand-400)' : 'var(--text-primary)',
+                fontWeight: opt.type === summaryType ? 700 : 400, cursor: 'pointer',
+              }}
+            >
+              {opt.type === summaryType ? '✓ ' : '\u00a0\u00a0'}{opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Bulk toolbar ─────────────────────────────────────────────────────────────
 
 function BulkToolbar({
@@ -383,10 +620,13 @@ function BulkToolbar({
 
 // ─── Main table ───────────────────────────────────────────────────────────────
 
-export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false }: Props) {
+export default function ItemsTable({ app, items, fields, workspaceId, readOnly = false, canReorder = false }: Props) {
   const { t } = useT()
   const router = useRouter()
   const [localItems, setLocalItems] = useState<ItemRow[]>(items)
+  const colorRules: ColorRule[] = (() => {
+    try { return JSON.parse(app.colorRulesJson ?? '[]') } catch { return [] }
+  })()
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -395,6 +635,21 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
   const [groupBy, setGroupBy] = useState<string>('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [colorBy, setColorBy] = useState<string>('')
+  const [summaryTypes, setSummaryTypes] = useState<Record<string, SummaryType>>(() => {
+    if (typeof window === 'undefined') return {}
+    try { return JSON.parse(localStorage.getItem(`summary-${app.id}`) ?? '{}') } catch { return {} }
+  })
+
+  function updateSummaryType(fieldId: string, type: SummaryType) {
+    setSummaryTypes(prev => {
+      const next = { ...prev, [fieldId]: type }
+      localStorage.setItem(`summary-${app.id}`, JSON.stringify(next))
+      return next
+    })
+  }
+
+  const [dragRowId, setDragRowId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   // Keep localItems in sync when parent re-renders (server refetch)
   useEffect(() => { setLocalItems(items) }, [items])
@@ -490,6 +745,20 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
     startTransition(async () => { await bulkUpdateField(ids, fieldId, value) })
   }
 
+  function handleDrop(targetId: string) {
+    if (!dragRowId || dragRowId === targetId) { setDragOverId(null); return }
+    const fromIdx = localItems.findIndex(i => i.id === dragRowId)
+    const toIdx = localItems.findIndex(i => i.id === targetId)
+    if (fromIdx === -1 || toIdx === -1) { setDragOverId(null); return }
+    const newItems = [...localItems]
+    const [moved] = newItems.splice(fromIdx, 1)
+    newItems.splice(toIdx, 0, moved)
+    setLocalItems(newItems)
+    setDragRowId(null)
+    setDragOverId(null)
+    startTransition(async () => { await reorderItems(app.id, newItems.map(i => i.id)) })
+  }
+
   // ── Grouping logic ──────────────────────────────────────────────────────────
   const groupField = fields.find(f => f.id === groupBy)
 
@@ -514,6 +783,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
   })()
 
   const colorField = colorBy ? fields.find(f => f.id === colorBy) : null
+  const showDragHandle = canReorder && !groupBy
 
   function renderRows(rowItems: ItemRow[]) {
     return rowItems.map((item) => {
@@ -522,9 +792,10 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
       const isEditingTitle = editingCell?.itemId === item.id && editingCell.fieldId === '__title__'
       const isSelected = selectedIds.has(item.id)
 
-      // Color by category field
-      let rowColor: string | undefined
-      if (colorField?.type === 'category') {
+      // Color rules take priority over colorBy
+      const ruleColor = colorRules.length > 0 ? getColorRuleMatch(item, colorRules, fields) : undefined
+      let rowColor: string | undefined = ruleColor
+      if (!rowColor && colorField?.type === 'category') {
         const optId = data[colorField.id]
         const opt = colorField.options?.find(o => o.id === optId)
         if (opt) rowColor = opt.color
@@ -533,14 +804,34 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
       return (
         <tr
           key={item.id}
+          draggable={showDragHandle ? true : undefined}
+          onDragStart={showDragHandle ? e => { e.dataTransfer.effectAllowed = 'move'; setDragRowId(item.id) } : undefined}
+          onDragOver={showDragHandle ? e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(item.id) } : undefined}
+          onDrop={showDragHandle ? e => { e.preventDefault(); handleDrop(item.id) } : undefined}
+          onDragEnd={showDragHandle ? () => { setDragRowId(null); setDragOverId(null) } : undefined}
           onClick={() => { if (!readOnly && !editingCell) router.push(`/dashboard/${workspaceId}/${app.id}/${item.id}`) }}
           onContextMenu={readOnly ? undefined : e => openContextMenu(e, item)}
+          className={dragOverId === item.id && dragRowId !== item.id ? 'drag-target-row' : undefined}
           style={{
             cursor: readOnly ? 'default' : editingCell ? 'default' : 'pointer',
+            opacity: dragRowId === item.id ? 0.4 : 1,
             background: isSelected ? 'rgba(99,102,241,0.07)' : rowColor ? rowColor + '0d' : undefined,
             borderLeft: rowColor ? `3px solid ${rowColor}88` : undefined,
           }}
         >
+          {showDragHandle && (
+            <td
+              className="drag-handle"
+              onClick={e => e.stopPropagation()}
+              title="Drag to reorder"
+            >
+              <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" style={{ display: 'block', margin: 'auto' }}>
+                <circle cx="3" cy="2.5" r="1.5"/><circle cx="7" cy="2.5" r="1.5"/>
+                <circle cx="3" cy="7" r="1.5"/><circle cx="7" cy="7" r="1.5"/>
+                <circle cx="3" cy="11.5" r="1.5"/><circle cx="7" cy="11.5" r="1.5"/>
+              </svg>
+            </td>
+          )}
           <td onClick={e => toggleSelect(item.id, e)} style={{ textAlign: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -588,6 +879,13 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
                   <span style={{ fontSize: 11, color: 'var(--text-disabled)', fontStyle: 'italic' }}>
                     {t('table.openItem')}
                   </span>
+                </td>
+              )
+            }
+            if (f.type === 'lookup' || f.type === 'rollup') {
+              return (
+                <td key={f.id} style={{ minWidth: 100 }} title={f.type === 'rollup' ? `${f.rollupFunction ?? 'COUNT'}` : undefined}>
+                  <FieldCell value={data[f.id]} field={f} />
                 </td>
               )
             }
@@ -646,7 +944,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
     })
   }
 
-  const totalCols = 5 + fields.length
+  const totalCols = (showDragHandle ? 1 : 0) + 5 + fields.length
 
   if (localItems.length === 0) {
     return (
@@ -716,6 +1014,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
         <table className="data-table" style={{ minWidth: 600 }}>
           <thead>
             <tr>
+              {showDragHandle && <th style={{ width: 28, padding: '0 4px' }} />}
               <th style={{ width: 36 }}>
                 <input
                   type="checkbox"
@@ -738,7 +1037,7 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               <th style={{ width: 90 }}>{t('detail.tabs.activity')}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody onMouseDown={() => setContextMenu(null)}>
             {groups.map(group => {
               const isCollapsed = collapsedGroups.has(group.key)
               return [
@@ -775,6 +1074,30 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
               ]
             })}
           </tbody>
+          {fields.length > 0 && (
+            <tfoot>
+              <tr style={{ background: 'var(--bg-elevated)', borderTop: '2px solid var(--border-subtle)' }}>
+                {showDragHandle && <td style={{ padding: '4px 8px' }} />}
+                <td style={{ padding: '4px 8px' }} />
+                <td style={{ padding: '6px 12px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                    {localItems.length} {localItems.length === 1 ? 'record' : 'records'}
+                  </span>
+                </td>
+                {fields.map(f => (
+                  <td key={f.id} style={{ padding: '4px 8px' }}>
+                    <SummaryCell
+                      field={f}
+                      items={localItems}
+                      summaryType={summaryTypes[f.id] ?? 'none'}
+                      onChange={type => updateSummaryType(f.id, type)}
+                    />
+                  </td>
+                ))}
+                <td /><td /><td />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -911,6 +1234,17 @@ export default function ItemsTable({ app, items, fields, workspaceId, readOnly =
           user-select: none;
         }
         .group-header-row:hover td { background: var(--bg-hover) !important; }
+        .drag-handle {
+          width: 28px;
+          padding: 0 6px;
+          color: var(--text-disabled);
+          cursor: grab;
+          text-align: center;
+          user-select: none;
+        }
+        .drag-handle:hover { color: var(--text-tertiary); }
+        .drag-handle:active { cursor: grabbing; }
+        .drag-target-row td { box-shadow: inset 0 2px 0 var(--brand-500); }
       `}</style>
     </>
   )

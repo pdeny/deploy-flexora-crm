@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import { updateAppFields, createItem, updateApp, deleteApp } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
-import type { AppField, FieldType, CategoryOption } from '@/lib/types'
+import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
 import type { FilterRule } from '@/lib/filters'
 import ViewToggle from '@/components/ViewToggle'
 import FilterBar from '@/components/FilterBar'
 import SortDropdown from '@/components/SortDropdown'
 import ShareLinkModal from '@/components/ShareLinkModal'
 import FormBuilderModal from '@/components/FormBuilderModal'
+import ColorRulesModal from '@/components/ColorRulesModal'
+import type { ColorRule } from '@/lib/types'
 
 const FIELD_TYPE_DEFS: { value: FieldType; labelKey: LangKey; icon: string }[] = [
   { value: 'text',        labelKey: 'header.fieldType.text',        icon: 'T' },
@@ -27,6 +29,8 @@ const FIELD_TYPE_DEFS: { value: FieldType; labelKey: LangKey; icon: string }[] =
   { value: 'toggle',      labelKey: 'header.fieldType.toggle',      icon: '☑' },
   { value: 'calculation', labelKey: 'header.fieldType.calculation', icon: 'ƒ' },
   { value: 'relation',    labelKey: 'header.fieldType.relation',    icon: '🔗' },
+  { value: 'lookup',      labelKey: 'header.fieldType.lookup',      icon: '⤴' },
+  { value: 'rollup',      labelKey: 'header.fieldType.rollup',      icon: 'Σ' },
 ]
 
 const OPTION_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b981','#06b6d4','#3b82f6']
@@ -42,6 +46,7 @@ type AppSnap = {
   shareToken?: string | null
   formToken?: string | null
   formFieldsJson?: string
+  colorRulesJson?: string
 }
 
 type ItemForExport = {
@@ -63,7 +68,7 @@ type Props = {
   sortField: string
   sortDir: 'asc' | 'desc'
   items?: ItemForExport[]
-  workspaceApps?: { id: string; name: string; iconEmoji: string }[]
+  workspaceApps?: { id: string; name: string; iconEmoji: string; fieldsJson?: string }[]
 }
 
 function exportToCSV(items: ItemForExport[], fields: AppField[], appName: string) {
@@ -130,6 +135,7 @@ export default function AppHeader({
 
   const [showShare, setShowShare] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showColorRules, setShowColorRules] = useState(false)
 
   // App edit/delete state
   const [showEditApp, setShowEditApp] = useState(false)
@@ -233,6 +239,10 @@ export default function AppHeader({
   const [newFieldDesc, setNewFieldDesc] = useState('')
   const [newFieldFormula, setNewFieldFormula] = useState('')
   const [newFieldRelatedApp, setNewFieldRelatedApp] = useState('')
+  const [newFieldLinkedFieldId, setNewFieldLinkedFieldId] = useState('')
+  const [newFieldLookupFieldId, setNewFieldLookupFieldId] = useState('')
+  const [newFieldRollupFn, setNewFieldRollupFn] = useState<RollupFunction>('COUNT')
+  const [newFieldRollupFieldId, setNewFieldRollupFieldId] = useState('')
 
   function addField() {
     if (!newFieldName.trim()) return
@@ -245,6 +255,15 @@ export default function AppHeader({
       ...((newFieldType === 'category' || newFieldType === 'multiselect') ? { options: newOptions } : {}),
       ...(newFieldType === 'calculation' && newFieldFormula.trim() ? { calcFormula: newFieldFormula.trim() } : {}),
       ...(newFieldType === 'relation' && newFieldRelatedApp ? { relatedAppId: newFieldRelatedApp } : {}),
+      ...(newFieldType === 'lookup' ? {
+        ...(newFieldLinkedFieldId ? { linkedFieldId: newFieldLinkedFieldId } : {}),
+        ...(newFieldLookupFieldId ? { lookupFieldId: newFieldLookupFieldId } : {}),
+      } : {}),
+      ...(newFieldType === 'rollup' ? {
+        ...(newFieldLinkedFieldId ? { linkedFieldId: newFieldLinkedFieldId } : {}),
+        rollupFunction: newFieldRollupFn,
+        ...(newFieldRollupFieldId ? { rollupFieldId: newFieldRollupFieldId } : {}),
+      } : {}),
     }
     setFields(prev => [...prev, f])
     setNewFieldName('')
@@ -254,6 +273,10 @@ export default function AppHeader({
     setNewFieldDesc('')
     setNewFieldFormula('')
     setNewFieldRelatedApp('')
+    setNewFieldLinkedFieldId('')
+    setNewFieldLookupFieldId('')
+    setNewFieldRollupFn('COUNT')
+    setNewFieldRollupFieldId('')
   }
 
   function removeField(id: string) {
@@ -566,6 +589,22 @@ export default function AppHeader({
                     }}>{t('header.live')}</span>
                   )}
                 </button>
+                <button className="app-more-item" onClick={() => { setShowMore(false); setShowColorRules(true) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 0 12 2"/>
+                  </svg>
+                  {t('header.colorRules')}
+                  {(() => {
+                    let ruleCount = 0
+                    try { ruleCount = JSON.parse(app.colorRulesJson ?? '[]').length } catch { /* */ }
+                    return ruleCount > 0 ? (
+                      <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 9999, background: 'var(--brand-500)', color: '#fff' }}>
+                        {ruleCount}
+                      </span>
+                    ) : null
+                  })()}
+                </button>
                 <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
                 <button className="app-more-item danger" onClick={() => { setShowMore(false); setDeleteConfirmName(''); setShowDeleteConfirm(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -607,6 +646,20 @@ export default function AppHeader({
             initialToken={app.formToken ?? null}
             initialConfig={config}
             onClose={() => setShowForm(false)}
+          />
+        )
+      })()}
+
+      {/* ── Color Rules Modal ── */}
+      {showColorRules && (() => {
+        let rules: ColorRule[] = []
+        try { rules = JSON.parse(app.colorRulesJson ?? '[]') } catch { /* */ }
+        return (
+          <ColorRulesModal
+            appId={app.id}
+            fields={fields}
+            initialRules={rules}
+            onClose={() => setShowColorRules(false)}
           />
         )
       })()}
@@ -835,6 +888,81 @@ export default function AppHeader({
                                   </div>
                                 </div>
                               )}
+                              {(f.type === 'lookup' || f.type === 'rollup') && (() => {
+                                const relFields = fields.filter(rf => rf.type === 'relation')
+                                const selRelField = relFields.find(rf => rf.id === f.linkedFieldId)
+                                const linkedApp = workspaceApps.find(a => a.id === selRelField?.relatedAppId)
+                                let linkedAppFields: AppField[] = []
+                                try { linkedAppFields = JSON.parse(linkedApp?.fieldsJson ?? '[]') } catch { /* */ }
+                                return (
+                                  <>
+                                    <div>
+                                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>{t('header.linkedRelField')}</div>
+                                      <select
+                                        className="form-input form-select"
+                                        value={f.linkedFieldId ?? ''}
+                                        onChange={e => updateField(f.id, { linkedFieldId: e.target.value || undefined, lookupFieldId: undefined, rollupFieldId: undefined })}
+                                        style={{ fontSize: 12 }}
+                                      >
+                                        <option value="">{t('header.chooseRelField')}</option>
+                                        {relFields.map(rf => <option key={rf.id} value={rf.id}>{rf.name}</option>)}
+                                      </select>
+                                    </div>
+                                    {f.type === 'lookup' && f.linkedFieldId && (
+                                      <div>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>{t('header.lookupField')}</div>
+                                        <select
+                                          className="form-input form-select"
+                                          value={f.lookupFieldId ?? ''}
+                                          onChange={e => updateField(f.id, { lookupFieldId: e.target.value || undefined })}
+                                          style={{ fontSize: 12 }}
+                                        >
+                                          <option value="">{t('header.chooseLookupField')}</option>
+                                          <option value="__title__">Title (record name)</option>
+                                          {linkedAppFields.filter(lf => !['lookup', 'rollup', 'relation', 'calculation'].includes(lf.type)).map(lf => (
+                                            <option key={lf.id} value={lf.id}>{lf.name} ({lf.type})</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
+                                    {f.type === 'rollup' && f.linkedFieldId && (
+                                      <>
+                                        <div>
+                                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>{t('header.rollupFn')}</div>
+                                          <select
+                                            className="form-input form-select"
+                                            value={f.rollupFunction ?? 'COUNT'}
+                                            onChange={e => updateField(f.id, { rollupFunction: e.target.value as RollupFunction, rollupFieldId: undefined })}
+                                            style={{ fontSize: 12 }}
+                                          >
+                                            <option value="COUNT">COUNT — number of linked records</option>
+                                            <option value="SUM">SUM — sum of a numeric field</option>
+                                            <option value="AVG">AVG — average of a numeric field</option>
+                                            <option value="MIN">MIN — minimum value</option>
+                                            <option value="MAX">MAX — maximum value</option>
+                                          </select>
+                                        </div>
+                                        {(f.rollupFunction ?? 'COUNT') !== 'COUNT' && (
+                                          <div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>{t('header.rollupField')}</div>
+                                            <select
+                                              className="form-input form-select"
+                                              value={f.rollupFieldId ?? ''}
+                                              onChange={e => updateField(f.id, { rollupFieldId: e.target.value || undefined })}
+                                              style={{ fontSize: 12 }}
+                                            >
+                                              <option value="">{t('header.chooseLookupField')}</option>
+                                              {linkedAppFields.filter(lf => ['number', 'rating', 'progress'].includes(lf.type)).map(lf => (
+                                                <option key={lf.id} value={lf.id}>{lf.name}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </>
+                                )
+                              })()}
                               <div>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 5 }}>
                                   {t('header.fieldDesc')}
@@ -913,6 +1041,77 @@ export default function AppHeader({
                     </select>
                   </div>
                 )}
+                {(newFieldType === 'lookup' || newFieldType === 'rollup') && (() => {
+                  const relFields = fields.filter(rf => rf.type === 'relation')
+                  const selRelField = relFields.find(rf => rf.id === newFieldLinkedFieldId)
+                  const linkedApp = workspaceApps.find(a => a.id === selRelField?.relatedAppId)
+                  let linkedAppFields: AppField[] = []
+                  try { linkedAppFields = JSON.parse(linkedApp?.fieldsJson ?? '[]') } catch { /* */ }
+                  return (
+                    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.linkedRelField')}</div>
+                        <select
+                          className="form-input form-select"
+                          value={newFieldLinkedFieldId}
+                          onChange={e => { setNewFieldLinkedFieldId(e.target.value); setNewFieldLookupFieldId(''); setNewFieldRollupFieldId('') }}
+                        >
+                          <option value="">{t('header.chooseRelField')}</option>
+                          {relFields.map(rf => <option key={rf.id} value={rf.id}>{rf.name}</option>)}
+                        </select>
+                      </div>
+                      {newFieldType === 'lookup' && newFieldLinkedFieldId && (
+                        <div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.lookupField')}</div>
+                          <select
+                            className="form-input form-select"
+                            value={newFieldLookupFieldId}
+                            onChange={e => setNewFieldLookupFieldId(e.target.value)}
+                          >
+                            <option value="">{t('header.chooseLookupField')}</option>
+                            <option value="__title__">Title (record name)</option>
+                            {linkedAppFields.filter(lf => !['lookup', 'rollup', 'relation', 'calculation'].includes(lf.type)).map(lf => (
+                              <option key={lf.id} value={lf.id}>{lf.name} ({lf.type})</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {newFieldType === 'rollup' && newFieldLinkedFieldId && (
+                        <>
+                          <div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.rollupFn')}</div>
+                            <select
+                              className="form-input form-select"
+                              value={newFieldRollupFn}
+                              onChange={e => { setNewFieldRollupFn(e.target.value as RollupFunction); setNewFieldRollupFieldId('') }}
+                            >
+                              <option value="COUNT">COUNT — number of linked records</option>
+                              <option value="SUM">SUM — sum of a numeric field</option>
+                              <option value="AVG">AVG — average of a numeric field</option>
+                              <option value="MIN">MIN — minimum value</option>
+                              <option value="MAX">MAX — maximum value</option>
+                            </select>
+                          </div>
+                          {newFieldRollupFn !== 'COUNT' && (
+                            <div>
+                              <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6 }}>{t('header.rollupField')}</div>
+                              <select
+                                className="form-input form-select"
+                                value={newFieldRollupFieldId}
+                                onChange={e => setNewFieldRollupFieldId(e.target.value)}
+                              >
+                                <option value="">{t('header.chooseLookupField')}</option>
+                                {linkedAppFields.filter(lf => ['number', 'rating', 'progress'].includes(lf.type)).map(lf => (
+                                  <option key={lf.id} value={lf.id}>{lf.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+                })()}
                 {(newFieldType === 'category' || newFieldType === 'multiselect') && (
                   <div style={{ marginTop: 14 }}>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8 }}>{t('header.options')}</div>

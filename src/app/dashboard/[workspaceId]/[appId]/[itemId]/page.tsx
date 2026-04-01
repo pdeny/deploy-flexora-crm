@@ -46,20 +46,20 @@ export default async function ItemPage({
     }),
     prisma.app.findMany({
       where: { workspaceId: item.app.workspaceId },
-      select: { id: true, name: true, iconEmoji: true },
+      select: { id: true, name: true, iconEmoji: true, fieldsJson: true },
     }),
     ...relationFields.map(f =>
       prisma.itemRelation.findMany({
         where: { fieldId: f.id, fromItemId: item.id },
-        include: { toItem: { select: { id: true, title: true } } },
+        include: { toItem: { select: { id: true, title: true, dataJson: true } } },
       })
     ),
   ])
 
-  // Build a map: fieldId → linked items
-  const linkedByField: Record<string, { id: string; title: string }[]> = {}
+  // Build a map: fieldId → linked items (with dataJson for lookup/rollup computation)
+  const linkedByField: Record<string, { id: string; title: string; dataJson: string }[]> = {}
   relationFields.forEach((f, i) => {
-    linkedByField[f.id] = (relationResults[i] ?? []).map((r: { toItem: { id: string; title: string } }) => r.toItem)
+    linkedByField[f.id] = (relationResults[i] ?? []).map((r: { toItem: { id: string; title: string; dataJson: string } }) => r.toItem)
   })
 
   return (

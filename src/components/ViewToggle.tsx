@@ -98,7 +98,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
         .view-toggle-group {
           display: flex;
           align-items: center;
-          background: var(--bg-elevated);
+          background: var(--bg-overlay);
           border: 1px solid var(--border-default);
           border-radius: 8px;
           padding: 3px;
@@ -126,7 +126,7 @@ export default function ViewToggle({ currentView }: { currentView: View }) {
         }
         .view-toggle-btn.active {
           color: var(--text-primary);
-          background: var(--bg-overlay);
+          background: var(--bg-hover);
           box-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
       `}</style>
