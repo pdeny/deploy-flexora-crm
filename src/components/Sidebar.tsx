@@ -29,7 +29,6 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
     return () => clearTimeout(t)
   }, [pathname])
 
-  const activeWorkspace = workspaces.find(ws => pathname.startsWith(`/dashboard/${ws.id}`))
   const chatWorkspace = chatWorkspaceId ? workspaces.find(ws => ws.id === chatWorkspaceId) : null
 
   return (

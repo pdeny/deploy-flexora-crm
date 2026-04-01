@@ -32,7 +32,6 @@ async function sendMentionEmail(opts: {
 
   const from = process.env.RESEND_FROM ?? 'Flexora <onboarding@resend.dev>'
   const plainContent = stripMentions(opts.content)
-  const recipientLabel = opts.toName ?? opts.toEmail
 
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -133,7 +132,7 @@ export async function POST(
   const mentionedIds = parseMentionIds(content)
   if (mentionedIds.length > 0) {
     const senderName = user.name ?? user.email
-    const workspaceName = membership.workspace.name
+    const { name: workspaceName } = membership.workspace
 
     // Fetch mentioned users (must be workspace members)
     const mentionedMembers = await prisma.workspaceMember.findMany({

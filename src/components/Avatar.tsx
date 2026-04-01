@@ -16,6 +16,7 @@ export function Avatar({ name, email, avatarUrl, size = 28, radius = 8 }: Avatar
 
   if (avatarUrl) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={avatarUrl}
         alt={name ?? email}

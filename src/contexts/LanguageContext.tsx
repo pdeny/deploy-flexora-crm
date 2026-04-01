@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import { it, type LangKey } from '@/lib/i18n/it'
 import { en } from '@/lib/i18n/en'
 
@@ -21,12 +21,11 @@ const LanguageContext = createContext<ContextValue>({
 })
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>('it')
-
-  useEffect(() => {
+  const [lang, setLangState] = useState<Language>(() => {
+    if (typeof window === 'undefined') return 'it'
     const stored = localStorage.getItem('flexora-lang') as Language | null
-    if (stored === 'en' || stored === 'it') setLangState(stored)
-  }, [])
+    return stored === 'en' || stored === 'it' ? stored : 'it'
+  })
 
   function setLang(l: Language) {
     setLangState(l)

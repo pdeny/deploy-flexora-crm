@@ -109,6 +109,7 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
 
         <div className="topbar-avatar" title={user.name ?? user.email} style={user.avatarUrl ? { background: 'none', padding: 0, overflow: 'hidden' } : {}}>
           {user.avatarUrl
+            // eslint-disable-next-line @next/next/no-img-element
             ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }} />
             : (user.name ?? user.email)[0].toUpperCase()
           }
