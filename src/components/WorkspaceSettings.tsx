@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace } from '@/lib/actions/settings'
+import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace, setWorkspaceNotifications } from '@/lib/actions/settings'
 import { useT } from '@/contexts/LanguageContext'
 
 type MemberRow = {
@@ -23,6 +23,7 @@ type Props = {
   members: MemberRow[]
   currentUserId: string
   currentUserRole: string
+  currentUserNotificationsEnabled: boolean
 }
 
 const EMOJI_OPTIONS = ['🏢','🏠','🚀','💡','🎯','🔥','⭐','🌍','🎨','🛠','📊','💼','🤝','🎓','🌱']
@@ -30,8 +31,19 @@ const COLOR_OPTIONS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b98
 
 type Tab = 'general' | 'members' | 'danger'
 
-export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserRole }: Props) {
+export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserRole, currentUserNotificationsEnabled }: Props) {
   const [tab, setTab] = useState<Tab>('general')
+
+  // Notification preference
+  const [notifEnabled, setNotifEnabled] = useState(currentUserNotificationsEnabled)
+  const [isTogglingNotif, startToggleNotif] = useTransition()
+
+  function handleNotifToggle(checked: boolean) {
+    setNotifEnabled(checked)
+    startToggleNotif(async () => {
+      await setWorkspaceNotifications(workspace.id, checked)
+    })
+  }
 
   // General tab state
   const [name, setName] = useState(workspace.name)
@@ -117,6 +129,43 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
             {tab_.label}
           </button>
         ))}
+      </div>
+
+      {/* ── My Preferences (always visible) ── */}
+      <div className="settings-panel" style={{ marginBottom: 16 }}>
+        <div className="settings-section" style={{ paddingBottom: 0 }}>
+          <h2 className="settings-section-title">{t('wsSettings.myPreferences')}</h2>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {t('wsSettings.notifToggleLabel')}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                {t('wsSettings.notifToggleHint')}
+              </div>
+            </div>
+            <div
+              onClick={() => handleNotifToggle(!notifEnabled)}
+              style={{
+                width: 40, height: 22, borderRadius: 11, flexShrink: 0,
+                background: notifEnabled ? 'var(--brand-500)' : 'var(--border-default)',
+                position: 'relative',
+                transition: 'background 200ms',
+                opacity: isTogglingNotif ? 0.6 : 1,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: 3, left: notifEnabled ? 21 : 3,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 200ms',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* ── General ── */}

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { executeAutomations } from '@/lib/actions/automations'
+import { shouldNotify } from '@/lib/notifPrefs'
 import type { AppField } from '@/lib/types'
 
 function formatActivityValue(value: unknown, field?: AppField): string {
@@ -278,14 +279,16 @@ export async function addComment(formData: FormData) {
 
   // Notify item creator if different from commenter
   if (item.creatorId !== user.id) {
-    await prisma.notification.create({
-      data: {
-        userId: item.creatorId,
-        title: `New comment on "${item.title}"`,
-        body: content.trim().slice(0, 120),
-        link: notifyLink,
-      },
-    })
+    if (await shouldNotify(item.creatorId, item.app.workspaceId)) {
+      await prisma.notification.create({
+        data: {
+          userId: item.creatorId,
+          title: `New comment on "${item.title}"`,
+          body: content.trim().slice(0, 120),
+          link: notifyLink,
+        },
+      })
+    }
   }
 
   // Notify @mentioned workspace members
@@ -298,7 +301,7 @@ export async function addComment(formData: FormData) {
       const nameSlug = (u.name ?? u.email).toLowerCase().replace(/\s+/g, '.')
       const emailSlug = u.email.toLowerCase().split('@')[0]
       if (mentionTokens.some(t => nameSlug.startsWith(t) || emailSlug.startsWith(t))) {
-        if (!notifiedIds.has(u.id)) {
+        if (!notifiedIds.has(u.id) && member.notificationsEnabled) {
           notifiedIds.add(u.id)
           await prisma.notification.create({
             data: {

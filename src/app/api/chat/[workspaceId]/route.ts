@@ -141,6 +141,7 @@ export async function POST(
         workspaceId,
         userId: { in: mentionedIds },
         NOT: { userId: user.id }, // don't notify self
+        notificationsEnabled: true,
       },
       include: { user: { select: { id: true, name: true, email: true } } },
     })

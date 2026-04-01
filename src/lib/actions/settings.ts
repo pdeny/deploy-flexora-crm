@@ -105,6 +105,22 @@ export async function updateMemberRole(workspaceId: string, targetUserId: string
   return { success: true }
 }
 
+export async function setWorkspaceNotifications(workspaceId: string, enabled: boolean) {
+  const user = await requireUser()
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+  })
+  if (!member) return { error: 'Not a member' }
+
+  await prisma.workspaceMember.update({
+    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+    data: { notificationsEnabled: enabled },
+  })
+
+  revalidatePath(`/dashboard/${workspaceId}/settings`)
+  return { success: true }
+}
+
 export async function deleteWorkspace(workspaceId: string) {
   const { member } = await requireOwner(workspaceId)
   if (member.role !== 'owner') return { error: 'Only owners can delete the workspace' }

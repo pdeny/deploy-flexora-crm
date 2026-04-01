@@ -52,6 +52,7 @@ export default async function SettingsPage({
         }))}
         currentUserId={user.id}
         currentUserRole={currentMember.role}
+        currentUserNotificationsEnabled={currentMember.notificationsEnabled}
       />
 
       <div style={{ maxWidth: 680, marginTop: 32 }}>

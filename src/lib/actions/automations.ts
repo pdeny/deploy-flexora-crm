@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { filterNotifiable } from '@/lib/notifPrefs'
 import type { AutomationTrigger, AutomationAction } from '@/lib/types'
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -140,9 +141,11 @@ async function runAction(
     })
     if (!app) return
 
-    const recipientIds = cfg.notifyAll
+    const candidateIds = cfg.notifyAll
       ? app.workspace.members.map(m => m.userId)
       : context.userId ? [context.userId] : []
+
+    const recipientIds = await filterNotifiable(candidateIds, app.workspaceId)
 
     for (const userId of recipientIds) {
       await prisma.notification.create({
