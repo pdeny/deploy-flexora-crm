@@ -200,7 +200,7 @@ export default function ApiKeysPanel({ workspaceId, initialKeys }: Props) {
             ['PATCH', `/api/v1/apps/{appId}/items/{itemId}`, 'Update item {title?, data?}'],
             ['DELETE', `/api/v1/apps/{appId}/items/{itemId}`, 'Delete item'],
           ].map(([method, path, desc]) => (
-            <div key={path} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+            <div key={`${method}-${path}`} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
               <span style={{
                 fontFamily: 'monospace', fontSize: 10, fontWeight: 800,
                 color: method === 'GET' ? '#06b6d4' : method === 'POST' ? '#10b981' : method === 'PATCH' ? '#f59e0b' : '#ef4444',
