@@ -8,6 +8,7 @@ import type { AppField } from '@/lib/types'
 import { formatRelative } from '@/lib/utils'
 import { evalFormula, formatFormulaResult } from '@/lib/formula'
 import { computeFieldFromLinkedItems } from '@/lib/rollup'
+import { Avatar } from '@/components/Avatar'
 import RelationField from '@/components/RelationField'
 import { MultiselectCombobox } from '@/components/MultiselectCombobox'
 
@@ -690,8 +691,8 @@ export default function ItemDetail({ item, fields, user, workspaceMembers = [], 
                   // comment
                   return (
                     <div key={`comment-${event.comment.id}`} className="activity-event comment-event">
-                      <div className="comment-avatar" style={{ width: 24, height: 24, fontSize: 10, flexShrink: 0 }}>
-                        {(event.comment.author.name ?? event.comment.author.email)[0].toUpperCase()}
+                      <div className="comment-avatar" style={{ width: 24, height: 24, flexShrink: 0, overflow: 'hidden' }}>
+                        <Avatar name={event.comment.author.name} email={event.comment.author.email} avatarUrl={(event.comment.author as { avatarUrl?: string | null }).avatarUrl} size={24} radius={8} />
                       </div>
                       <div className="activity-event-body">
                         <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>

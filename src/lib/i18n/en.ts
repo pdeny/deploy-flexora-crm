@@ -361,6 +361,11 @@ export const en: LangDict = {
   'profileSettings.pwTooShort': 'Password must be at least 8 characters',
   'profileSettings.changePwBtn': 'Change Password',
   'profileSettings.changing': 'Changing…',
+  'profileSettings.changeAvatar': 'Click to change photo',
+  'profileSettings.removeAvatar': 'Remove photo',
+  'profileSettings.avatarSaved': 'Photo updated!',
+  'profileSettings.avatarError': 'Failed to process image',
+  'profileSettings.avatarInvalidType': 'Please select an image file',
 
   // Automations
   'auto.title': 'Automations',

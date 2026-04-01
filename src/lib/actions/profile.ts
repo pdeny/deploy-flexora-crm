@@ -18,6 +18,26 @@ export async function updateProfile(data: { name: string }) {
   return { success: true }
 }
 
+export async function updateAvatar(dataUrl: string) {
+  const user = await requireUser()
+  if (!dataUrl.startsWith('data:image/')) return { error: 'Invalid image format' }
+  if (dataUrl.length > 500_000) return { error: 'Image too large — please use a smaller photo' }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { avatarUrl: dataUrl },
+  })
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}
+
+export async function removeAvatar() {
+  const user = await requireUser()
+  await prisma.user.update({ where: { id: user.id }, data: { avatarUrl: null } })
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}
+
 export async function changePassword(data: { current: string; next: string }) {
   const user = await requireUser()
 

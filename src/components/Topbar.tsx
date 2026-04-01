@@ -107,8 +107,11 @@ export default function Topbar({ user, notifications, unreadCount }: Props) {
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
         >?</button>
 
-        <div className="topbar-avatar" title={user.name ?? user.email}>
-          {(user.name ?? user.email)[0].toUpperCase()}
+        <div className="topbar-avatar" title={user.name ?? user.email} style={user.avatarUrl ? { background: 'none', padding: 0, overflow: 'hidden' } : {}}>
+          {user.avatarUrl
+            ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }} />
+            : (user.name ?? user.email)[0].toUpperCase()
+          }
         </div>
       </div>
     </header>

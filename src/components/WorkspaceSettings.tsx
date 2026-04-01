@@ -3,11 +3,12 @@
 import { useState, useTransition } from 'react'
 import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace, setWorkspaceNotifications } from '@/lib/actions/settings'
 import { useT } from '@/contexts/LanguageContext'
+import { Avatar } from '@/components/Avatar'
 
 type MemberRow = {
   id: string
   role: string
-  user: { id: string; name: string | null; email: string }
+  user: { id: string; name: string | null; email: string; avatarUrl: string | null }
 }
 
 type WorkspaceSnap = {
@@ -267,14 +268,7 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {members.map(m => (
                 <div key={m.id} className="member-row">
-                  <div style={{
-                    width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                    background: 'linear-gradient(135deg, var(--brand-600), var(--accent-violet))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 13, fontWeight: 800, color: '#fff',
-                  }}>
-                    {(m.user.name ?? m.user.email)[0].toUpperCase()}
-                  </div>
+                  <Avatar name={m.user.name} email={m.user.email} avatarUrl={m.user.avatarUrl} size={34} radius={10} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{m.user.name ?? m.user.email}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{m.user.email}</div>

@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useT } from '@/contexts/LanguageContext'
+import { Avatar } from '@/components/Avatar'
 
 type ChatMessage = {
   id: string
   content: string
   createdAt: string
-  user: { id: string; name: string | null; email: string }
+  user: { id: string; name: string | null; email: string; avatarUrl: string | null }
 }
 
-type Member = { id: string; name: string | null; email: string }
+type Member = { id: string; name: string | null; email: string; avatarUrl?: string | null }
 
 type Props = {
   workspaceId: string
@@ -259,7 +260,6 @@ export function ChatPanel({ workspaceId, workspaceName, currentUserId, onClose }
           const prev = messages[i - 1]
           const showSender = !prev || prev.user.id !== msg.user.id
           const displayName = msg.user.name ?? msg.user.email
-          const initial = displayName[0].toUpperCase()
           const time = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           const showTime = !messages[i + 1] || messages[i + 1].user.id !== msg.user.id
 
@@ -275,15 +275,8 @@ export function ChatPanel({ workspaceId, workspaceName, currentUserId, onClose }
               }}
             >
               {!isMine && (
-                <div style={{
-                  width: 26, height: 26, borderRadius: 7,
-                  background: 'linear-gradient(135deg, var(--brand-600), var(--accent-violet))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 800, color: '#fff',
-                  flexShrink: 0,
-                  visibility: showSender ? 'visible' : 'hidden',
-                }}>
-                  {initial}
+                <div style={{ visibility: showSender ? 'visible' : 'hidden', flexShrink: 0 }}>
+                  <Avatar name={msg.user.name} email={msg.user.email} avatarUrl={msg.user.avatarUrl} size={26} radius={7} />
                 </div>
               )}
 
@@ -368,14 +361,7 @@ export function ChatPanel({ workspaceId, workspaceName, currentUserId, onClose }
                   }}
                   onMouseEnter={() => setMentionHighlight(idx)}
                 >
-                  <div style={{
-                    width: 24, height: 24, borderRadius: 6,
-                    background: 'linear-gradient(135deg, var(--brand-600), var(--accent-violet))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0,
-                  }}>
-                    {label[0].toUpperCase()}
-                  </div>
+                  <Avatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={24} radius={6} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {label}

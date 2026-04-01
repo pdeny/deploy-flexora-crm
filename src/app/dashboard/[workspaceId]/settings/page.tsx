@@ -48,7 +48,7 @@ export default async function SettingsPage({
         members={workspace.members.map(m => ({
           id: m.id,
           role: m.role,
-          user: { id: m.user.id, name: m.user.name, email: m.user.email },
+          user: { id: m.user.id, name: m.user.name, email: m.user.email, avatarUrl: m.user.avatarUrl },
         }))}
         currentUserId={user.id}
         currentUserRole={currentMember.role}

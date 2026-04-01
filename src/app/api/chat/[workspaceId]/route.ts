@@ -86,14 +86,14 @@ export async function GET(
         workspaceId,
         ...(since ? { createdAt: { gt: new Date(since) } } : {}),
       },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
       orderBy: { createdAt: 'asc' },
       take: since ? 50 : 100,
     }),
     // Only fetch members on initial load (no `since`)
     since ? Promise.resolve(null) : prisma.workspaceMember.findMany({
       where: { workspaceId },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
     }),
   ])
 
@@ -126,7 +126,7 @@ export async function POST(
 
   const message = await prisma.message.create({
     data: { workspaceId, userId: user.id, content: content.trim() },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
   })
 
   // ── Process mentions asynchronously ────────────────────────────────────────
@@ -143,7 +143,7 @@ export async function POST(
         NOT: { userId: user.id }, // don't notify self
         notificationsEnabled: true,
       },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
     })
 
     await Promise.all(

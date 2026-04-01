@@ -12,7 +12,7 @@ export default async function ProfilePage() {
       <div className="page-header">
         <PageHeader titleKey="profile.title" subtitleKey="profile.subtitle" />
       </div>
-      <ProfileSettings user={{ id: user.id, name: user.name, email: user.email }} />
+      <ProfileSettings user={{ id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl }} />
     </div>
   )
 }

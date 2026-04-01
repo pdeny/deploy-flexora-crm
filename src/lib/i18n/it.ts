@@ -359,6 +359,11 @@ export const it = {
   'profileSettings.pwTooShort': 'La password deve essere di almeno 8 caratteri',
   'profileSettings.changePwBtn': 'Cambia password',
   'profileSettings.changing': 'Modifica…',
+  'profileSettings.changeAvatar': 'Clicca per cambiare foto',
+  'profileSettings.removeAvatar': 'Rimuovi foto',
+  'profileSettings.avatarSaved': 'Foto aggiornata!',
+  'profileSettings.avatarError': 'Impossibile elaborare l\'immagine',
+  'profileSettings.avatarInvalidType': 'Seleziona un file immagine',
 
   // Automations
   'auto.title': 'Automazioni',

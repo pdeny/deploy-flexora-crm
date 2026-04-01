@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useT } from '@/contexts/LanguageContext'
 import { ChatPanel } from '@/components/ChatPanel'
+import { Avatar } from '@/components/Avatar'
 
 export default function Sidebar({ user, workspaces }: { user: User; workspaces: Workspace[] }) {
   const pathname = usePathname()
@@ -112,8 +113,11 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
 
       <div className="sidebar-footer">
         <div className="sidebar-user" onClick={() => router.push('/dashboard/profile')} style={{ cursor: 'pointer' }} title={t('sidebar.profile')}>
-          <div className="sidebar-avatar">
-            {(user.name ?? user.email)[0].toUpperCase()}
+          <div className="sidebar-avatar" style={user.avatarUrl ? { background: 'none', padding: 0, overflow: 'hidden' } : {}}>
+            {user.avatarUrl
+              ? <Avatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} size={28} radius={8} />
+              : (user.name ?? user.email)[0].toUpperCase()
+            }
           </div>
           <div className="sidebar-user-info">
             <div className="sidebar-user-name truncate">{user.name ?? user.email}</div>
