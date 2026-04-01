@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateAppFields, createItem, updateApp, deleteApp } from '@/lib/actions/workspace'
+import { updateAppFields, createItem, updateApp, deleteApp, searchItemsForRelation, addRelation } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
@@ -301,13 +301,29 @@ export default function AppHeader({
   function handleAddItem(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setItemError(null)
+    // Separate relation selections from regular field data
+    const relationFields = fields.filter(f => f.type === 'relation')
+    const dataWithoutRelations = { ...itemData }
+    relationFields.forEach(f => delete dataWithoutRelations[f.id])
+
     const fd = new FormData(e.currentTarget)
     fd.set('appId', app.id)
-    fd.set('dataJson', JSON.stringify(itemData))
+    fd.set('dataJson', JSON.stringify(dataWithoutRelations))
     startItem(async () => {
       const result = await createItem(fd)
-      if (result?.error) setItemError(result.error)
-      else { setShowAddItem(false); setItemData({}) }
+      if (result?.error) { setItemError(result.error); return }
+      // Create ItemRelation records for any relation fields that were filled
+      const newItemId = result.item?.id
+      if (newItemId) {
+        for (const f of relationFields) {
+          const selected = itemData[f.id] as { id: string }[] | undefined
+          if (selected?.length) {
+            await Promise.all(selected.map(s => addRelation(f.id, newItemId, s.id)))
+          }
+        }
+      }
+      setShowAddItem(false)
+      setItemData({})
     })
   }
 
@@ -1430,12 +1446,110 @@ export default function AppHeader({
   )
 }
 
+function RelationPicker({ field, onChange }: { field: AppField; onChange: (v: { id: string; title: string }[]) => void }) {
+  const [query, setQuery] = React.useState('')
+  const [results, setResults] = React.useState<{ id: string; title: string }[]>([])
+  const [selected, setSelected] = React.useState<{ id: string; title: string }[]>([])
+  const [open, setOpen] = React.useState(false)
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function search(q: string) {
+    setQuery(q)
+    if (timer.current) clearTimeout(timer.current)
+    if (!field.relatedAppId) return
+    timer.current = setTimeout(async () => {
+      const res = await searchItemsForRelation(field.relatedAppId!, q)
+      setResults(res.items.filter(r => !selected.some(s => s.id === r.id)))
+      setOpen(true)
+    }, 250)
+  }
+
+  function pick(item: { id: string; title: string }) {
+    const next = [...selected, item]
+    setSelected(next)
+    onChange(next)
+    setQuery('')
+    setResults([])
+    setOpen(false)
+  }
+
+  function remove(id: string) {
+    const next = selected.filter(s => s.id !== id)
+    setSelected(next)
+    onChange(next)
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center',
+        border: '1px solid var(--border-default)', borderRadius: 8,
+        padding: '6px 10px', background: 'var(--bg-input)', minHeight: 36,
+      }}>
+        {selected.map(s => (
+          <span key={s.id} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: 'rgba(99,102,241,0.15)', color: 'var(--brand-300)',
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: 4,
+            padding: '2px 6px', fontSize: 12, fontWeight: 600,
+          }}>
+            {s.title}
+            <button type="button" onClick={() => remove(s.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={query}
+          onChange={e => search(e.target.value)}
+          onFocus={() => { if (field.relatedAppId) search(query) }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder={selected.length ? '' : field.name}
+          style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, flex: 1, minWidth: 80, color: 'var(--text-primary)' }}
+        />
+      </div>
+      {open && results.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
+          borderRadius: 8, marginTop: 4, overflow: 'hidden',
+          boxShadow: 'var(--shadow-lg)',
+        }}>
+          {results.map(r => (
+            <button key={r.id} type="button" onMouseDown={() => pick(r)}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '8px 12px', fontSize: 13, color: 'var(--text-primary)',
+                cursor: 'pointer', transition: 'background 100ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >{r.title}</button>
+          ))}
+        </div>
+      )}
+      {open && results.length === 0 && query.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
+          borderRadius: 8, marginTop: 4, padding: '10px 12px',
+          fontSize: 12, color: 'var(--text-tertiary)',
+          boxShadow: 'var(--shadow-lg)',
+        }}>No results found</div>
+      )}
+    </div>
+  )
+}
+
 function ItemFieldInput({ field, onChange }: { field: AppField; onChange: (v: unknown) => void }) {
   // All hooks must be at the top — unconditional
   const [multiSel, setMultiSel] = React.useState<string[]>([])
   const [ratingVal, setRatingVal] = React.useState(0)
   const [progressVal, setProgressVal] = React.useState(0)
 
+  if (field.type === 'relation') {
+    return <RelationPicker field={field} onChange={onChange} />
+  }
   if (field.type === 'toggle') {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
