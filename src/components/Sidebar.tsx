@@ -7,12 +7,14 @@ import type { Workspace, User } from '@/generated/prisma'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useT } from '@/contexts/LanguageContext'
+import { ChatPanel } from '@/components/ChatPanel'
 
 export default function Sidebar({ user, workspaces }: { user: User; workspaces: Workspace[] }) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useT()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [chatWorkspaceId, setChatWorkspaceId] = useState<string | null>(null)
 
   useEffect(() => {
     const toggle = () => setMobileOpen(o => !o)
@@ -26,10 +28,21 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
     return () => clearTimeout(t)
   }, [pathname])
 
+  const activeWorkspace = workspaces.find(ws => pathname.startsWith(`/dashboard/${ws.id}`))
+  const chatWorkspace = chatWorkspaceId ? workspaces.find(ws => ws.id === chatWorkspaceId) : null
+
   return (
     <>
       {mobileOpen && (
         <div className="sidebar-mobile-backdrop" onClick={() => setMobileOpen(false)} />
+      )}
+      {chatWorkspace && (
+        <ChatPanel
+          workspaceId={chatWorkspace.id}
+          workspaceName={chatWorkspace.name}
+          currentUserId={user.id}
+          onClose={() => setChatWorkspaceId(null)}
+        />
       )}
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
@@ -67,16 +80,28 @@ export default function Sidebar({ user, workspaces }: { user: User; workspaces: 
                     )}
                   </Link>
                   {isActive && (
-                    <Link
-                      href={`/dashboard/${ws.id}/settings`}
-                      className={`sidebar-link sidebar-sub-link ${pathname === `/dashboard/${ws.id}/settings` ? 'active' : ''}`}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0.6 }}>
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
-                      </svg>
-                      <span style={{ fontSize: 12 }}>{t('sidebar.settings')}</span>
-                    </Link>
+                    <>
+                      <Link
+                        href={`/dashboard/${ws.id}/settings`}
+                        className={`sidebar-link sidebar-sub-link ${pathname === `/dashboard/${ws.id}/settings` ? 'active' : ''}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0.6 }}>
+                          <circle cx="12" cy="12" r="3"/>
+                          <path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
+                        </svg>
+                        <span style={{ fontSize: 12 }}>{t('sidebar.settings')}</span>
+                      </Link>
+                      <button
+                        onClick={() => setChatWorkspaceId(chatWorkspaceId === ws.id ? null : ws.id)}
+                        className={`sidebar-link sidebar-sub-link${chatWorkspaceId === ws.id ? ' active' : ''}`}
+                        style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span style={{ fontSize: 12 }}>{t('sidebar.chat')}</span>
+                      </button>
+                    </>
                   )}
                 </div>
               )

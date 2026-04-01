@@ -530,4 +530,9 @@ export const en: LangDict = {
   'header.rollupField': 'Numeric field',
   'header.chooseRelField': '— select relation field —',
   'header.chooseLookupField': '— select field —',
+
+  // Chat
+  'sidebar.chat': 'Chat',
+  'chat.empty': 'No messages yet.\nSay hello to your team! 👋',
+  'chat.placeholder': 'Message…',
 }

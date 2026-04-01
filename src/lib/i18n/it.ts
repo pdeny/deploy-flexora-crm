@@ -528,6 +528,11 @@ export const it = {
   'header.rollupField': 'Campo numerico',
   'header.chooseRelField': '— seleziona campo relazione —',
   'header.chooseLookupField': '— seleziona campo —',
+
+  // Chat
+  'sidebar.chat': 'Chat',
+  'chat.empty': 'Nessun messaggio.\nDi\' ciao al tuo team! 👋',
+  'chat.placeholder': 'Messaggio…',
 } as const
 
 export type LangKey = keyof typeof it

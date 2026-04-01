@@ -28,6 +28,7 @@ model User {
   sessions         Session[]
   activityLogs     ActivityLog[]
   apiKeys          ApiKey[]
+  messages         Message[]
 }
 
 model Session {
@@ -52,6 +53,7 @@ model Workspace {
   members     WorkspaceMember[]
   apps        App[]
   apiKeys     ApiKey[]
+  messages    Message[]
 }
 
 model WorkspaceMember {
@@ -199,4 +201,17 @@ model Notification {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  workspaceId String
+  userId      String
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
 }
