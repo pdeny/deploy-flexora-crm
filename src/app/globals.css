@@ -976,13 +976,16 @@ html, body {
     font-size: 16px;
   }
 
-  /* Modals use more screen space */
+  /* Modals use more screen space — leave room for bottom nav (64px) */
   .modal-backdrop {
     padding: 0;
+    padding-bottom: 64px;
     align-items: flex-end;
+    z-index: 300;
   }
   .modal {
-    max-height: 94vh;
+    max-height: calc(100vh - 64px);
+    max-height: calc(100dvh - 64px);
     width: 100%;
     max-width: 100%;
     border-radius: 20px 20px 0 0;
