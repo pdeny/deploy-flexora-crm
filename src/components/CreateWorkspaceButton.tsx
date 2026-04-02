@@ -46,8 +46,8 @@ export default function CreateWorkspaceButton() {
 
       {open && (
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && handleClose()}>
-          <div className="modal">
-            <div className="modal-header">
+          <div className="modal" style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{ flexShrink: 0 }}>
               <h2 className="modal-title">{t('workspace.createTitle')}</h2>
               <button className="btn btn-ghost btn-icon" onClick={handleClose} aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -56,8 +56,8 @@ export default function CreateWorkspaceButton() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', flex: 1 }}>
                 {error && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#f87171', fontSize: 13 }}>
                     <span>⚠</span> {error}
@@ -109,7 +109,7 @@ export default function CreateWorkspaceButton() {
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ flexShrink: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={handleClose}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary" disabled={isPending}>
                   {isPending
