@@ -313,8 +313,8 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
 
       {open && (
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && handleClose()}>
-          <div className="modal" style={{ maxWidth: modalWidth, transition: 'max-width 200ms ease' }}>
-            <div className="modal-header">
+          <div className="modal" style={{ maxWidth: modalWidth, maxHeight: '85vh', display: 'flex', flexDirection: 'column', transition: 'max-width 200ms ease' }}>
+            <div className="modal-header" style={{ flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {step !== 'template' && (
                   <button
@@ -348,7 +348,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
             </div>
 
             {step === 'template' && (
-              <div className="modal-body">
+              <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
                 <div className="template-grid">
                   {TEMPLATES.map(tpl => (
                     <button
@@ -370,7 +370,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
 
             {step === 'details' && (
               <>
-                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto', flex: 1 }}>
                   {/* Template badge */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: selectedTemplate.color + '15', border: `1px solid ${selectedTemplate.color}30`, borderRadius: 8 }}>
                     <span style={{ fontSize: 16 }}>{selectedTemplate.emoji}</span>
@@ -435,7 +435,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   </div>
                 </div>
 
-                <div className="modal-footer">
+                <div className="modal-footer" style={{ flexShrink: 0 }}>
                   <button type="button" className="btn btn-secondary" onClick={handleClose}>{t('common.cancel')}</button>
                   <button type="button" className="btn btn-primary" onClick={handleDetailsNext} disabled={!appName.trim()}>
                     {t('app.builder.next')}
@@ -595,7 +595,7 @@ export default function CreateAppButton({ workspaceId, compact }: Props) {
                   </div>
                 </div>
 
-                <div className="modal-footer">
+                <div className="modal-footer" style={{ flexShrink: 0 }}>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {t('app.builder.fieldCount', { n: fields.length })}
                   </div>
