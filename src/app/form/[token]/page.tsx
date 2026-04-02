@@ -6,10 +6,14 @@ import PublicFormClient from './PublicFormClient'
 
 export default async function FormPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>
+  searchParams: Promise<{ embed?: string }>
 }) {
   const { token } = await params
+  const { embed } = await searchParams
+  const isEmbed = embed === '1'
 
   const app = await prisma.app.findUnique({ where: { formToken: token } })
   if (!app) notFound()
@@ -37,6 +41,7 @@ export default async function FormPage({
       app={{ name: app.name, iconEmoji: app.iconEmoji, color: app.color, description: app.description }}
       config={config}
       fields={fields}
+      embed={isEmbed}
     />
   )
 }

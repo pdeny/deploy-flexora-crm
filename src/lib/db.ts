@@ -26,7 +26,11 @@ function resolvePostgresUrl(): string {
 }
 
 function createPrismaClient() {
-  const pool = new Pool({ connectionString: resolvePostgresUrl() })
+  const connStr = resolvePostgresUrl()
+  const pool = new Pool({
+    connectionString: connStr,
+    ssl: connStr.includes('sslmode=disable') ? false : { rejectUnauthorized: true },
+  })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({
     adapter,

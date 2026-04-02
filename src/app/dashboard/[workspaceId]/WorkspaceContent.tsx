@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import CreateAppButton from '@/components/CreateAppButton'
-import { duplicateApp } from '@/lib/actions/workspace'
+import { duplicateApp, importAppFromCSV } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
 import { useT } from '@/contexts/LanguageContext'
 import type { PermissionMap } from '@/lib/permissions'
+import type { FieldType } from '@/lib/types'
 
 type AppSummary = {
   id: string
@@ -67,6 +68,117 @@ export default function WorkspaceContent({
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // CSV import state
+  const [showCSVImport, setShowCSVImport] = useState(false)
+  const [csvParsed, setCsvParsed] = useState<{ headers: string[]; rows: string[][] } | null>(null)
+  const [csvAppName, setCsvAppName] = useState('')
+  const [csvTitleCol, setCsvTitleCol] = useState(0)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvDragOver, setCsvDragOver] = useState(false)
+  const [csvSeparator, setCsvSeparator] = useState<',' | ';' | '.'>(',')
+  const [csvRawText, setCsvRawText] = useState('')
+  const csvFileRef = useRef<HTMLInputElement>(null)
+
+  const FIELD_TYPE_LABELS: Record<FieldType, string> = {
+    text: 'Text', number: 'Number', date: 'Date', category: 'Category',
+    multiselect: 'Multi-select', rating: 'Rating', progress: 'Progress',
+    email: 'Email', url: 'URL', phone: 'Phone', toggle: 'Toggle',
+    image: 'Image', relation: 'Relation', calculation: 'Formula',
+    lookup: 'Lookup', rollup: 'Rollup',
+  }
+
+  function parseCSV(text: string, sep: string = ','): { headers: string[]; rows: string[][] } {
+    const lines = text.trim().split(/\r?\n/)
+    function parseLine(line: string): string[] {
+      const cells: string[] = []; let cur = ''; let inQ = false
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i]
+        if (c === '"') {
+          if (inQ && line[i + 1] === '"') { cur += '"'; i++ }
+          else inQ = !inQ
+        } else if (c === sep && !inQ) { cells.push(cur); cur = '' }
+        else cur += c
+      }
+      cells.push(cur)
+      return cells
+    }
+    const headers = parseLine(lines[0] ?? '')
+    const rows = lines.slice(1).filter(l => l.trim()).map(parseLine)
+    return { headers, rows }
+  }
+
+  function detectSeparator(text: string): ',' | ';' | '.' {
+    const firstLine = text.split(/\r?\n/)[0] ?? ''
+    const commas = (firstLine.match(/,/g) ?? []).length
+    const semicolons = (firstLine.match(/;/g) ?? []).length
+    const dots = (firstLine.match(/\./g) ?? []).length
+    if (semicolons > commas && semicolons > dots) return ';'
+    if (dots > commas && dots > semicolons) return '.'
+    return ','
+  }
+
+  function inferFieldTypeClient(values: string[]): FieldType {
+    const samples = values.filter(v => v.trim() !== '').slice(0, 50)
+    if (samples.length === 0) return 'text'
+    const allMatch = (test: (v: string) => boolean) => samples.every(test)
+    if (allMatch(v => /^(yes|no|true|false|si|sì|1|0)$/i.test(v.trim()))) return 'toggle'
+    if (allMatch(v => /^-?\d+([.,]\d+)?$/.test(v.trim().replace(/\s/g, '')))) return 'number'
+    if (allMatch(v => !isNaN(Date.parse(v.trim())) && /\d/.test(v))) return 'date'
+    if (allMatch(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))) return 'email'
+    if (allMatch(v => /^https?:\/\/.+/i.test(v.trim()))) return 'url'
+    if (allMatch(v => /^\+?[\d\s\-().]{7,}$/.test(v.trim()))) return 'phone'
+    if (allMatch(v => /^[1-5]$/.test(v.trim()))) return 'rating'
+    const unique = new Set(samples.map(v => v.trim().toLowerCase()))
+    if (unique.size <= 15 && unique.size < samples.length * 0.6) return 'category'
+    return 'text'
+  }
+
+  function reparseCSV(text: string, sep: ',' | ';' | '.') {
+    const parsed = parseCSV(text, sep)
+    setCsvParsed(parsed)
+    const titleIdx = parsed.headers.findIndex(h => /^(title|name|nome|titolo)$/i.test(h.trim()))
+    setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
+  }
+
+  const handleCSVFile = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const text = e.target?.result as string
+      setCsvRawText(text)
+      const detectedSep = detectSeparator(text)
+      setCsvSeparator(detectedSep)
+      const parsed = parseCSV(text, detectedSep)
+      setCsvParsed(parsed)
+      const titleIdx = parsed.headers.findIndex(h => /^(title|name|nome|titolo)$/i.test(h.trim()))
+      setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
+      setCsvAppName(file.name.replace(/\.csv$/i, '').replace(/[-_]/g, ' '))
+    }
+    reader.readAsText(file)
+  }, [])
+
+  async function handleCSVImport() {
+    if (!csvParsed || !csvAppName.trim()) return
+    setCsvImporting(true)
+    const result = await importAppFromCSV({
+      workspaceId,
+      appName: csvAppName,
+      headers: csvParsed.headers,
+      rows: csvParsed.rows,
+      titleColumnIndex: csvTitleCol,
+    })
+    setCsvImporting(false)
+    if ('error' in result) {
+      alert(result.error)
+      return
+    }
+    setShowCSVImport(false)
+    setCsvParsed(null)
+    setCsvAppName('')
+    if (result.app) {
+      router.push(`/dashboard/${workspaceId}/${result.app.id}`)
+    }
+  }
+
   function handleDuplicateApp(e: React.MouseEvent, appId: string) {
     e.preventDefault()
     e.stopPropagation()
@@ -96,8 +208,20 @@ export default function WorkspaceContent({
           </div>
           {workspaceDescription && <p className="page-subtitle">{workspaceDescription}</p>}
         </div>
-        <div className="page-header-actions">
-          {can['app:create'] && <CreateAppButton workspaceId={workspaceId} />}
+        <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
+          {can['app:create'] && <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowCSVImport(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              {t('ws.importCSV')}
+            </button>
+            <CreateAppButton workspaceId={workspaceId} />
+          </>}
         </div>
       </div>
 
@@ -271,7 +395,188 @@ export default function WorkspaceContent({
         </div>
       </div>
 
+      {/* CSV Import Modal */}
+      {showCSVImport && (
+        <div className="modal-overlay" onClick={() => !csvImporting && setShowCSVImport(false)}>
+          <div className="modal-content" style={{ maxWidth: 720, maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('ws.importCSVTitle')}</h2>
+              <button className="modal-close" onClick={() => !csvImporting && setShowCSVImport(false)}>&times;</button>
+            </div>
+
+            {!csvParsed ? (
+              <div
+                className={`csv-dropzone ${csvDragOver ? 'csv-dropzone-active' : ''}`}
+                onDragOver={e => { e.preventDefault(); setCsvDragOver(true) }}
+                onDragLeave={() => setCsvDragOver(false)}
+                onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
+                onClick={() => csvFileRef.current?.click()}
+              >
+                <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 10 }}>{t('ws.importCSVDrop')}</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '0 0 8px' }}>
+                {/* App name + separator + title column */}
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 2, minWidth: 180 }}>
+                    <label className="form-label">{t('ws.importCSVAppName')}</label>
+                    <input className="form-input" value={csvAppName} onChange={e => setCsvAppName(e.target.value)} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <label className="form-label">{t('ws.importCSVSeparator')}</label>
+                    <div className="csv-sep-group">
+                      {([',', ';', '.'] as const).map(sep => (
+                        <button
+                          key={sep}
+                          className={`csv-sep-btn ${csvSeparator === sep ? 'csv-sep-active' : ''}`}
+                          onClick={() => { setCsvSeparator(sep); reparseCSV(csvRawText, sep) }}
+                        >
+                          {sep === ',' ? t('ws.importCSVSepComma') : sep === ';' ? t('ws.importCSVSepSemicolon') : t('ws.importCSVSepDot')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <label className="form-label">{t('ws.importCSVTitleCol')}</label>
+                    <select className="form-input" value={csvTitleCol} onChange={e => setCsvTitleCol(Number(e.target.value))}>
+                      {csvParsed.headers.map((h, i) => (
+                        <option key={i} value={i}>{h || `Column ${i + 1}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  <span>{t('ws.importCSVRows', { n: csvParsed.rows.length })}</span>
+                  <span>{t('ws.importCSVCols', { n: csvParsed.headers.length })}</span>
+                </div>
+
+                {/* Detected fields */}
+                <div>
+                  <label className="form-label">{t('ws.importCSVFields')}</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {csvParsed.headers.map((h, i) => {
+                      if (i === csvTitleCol) return (
+                        <span key={i} className="csv-field-tag csv-field-title">Title: {h}</span>
+                      )
+                      const colValues = csvParsed!.rows.map(row => row[i] ?? '')
+                      const type = inferFieldTypeClient(colValues)
+                      return (
+                        <span key={i} className="csv-field-tag">
+                          {h} <span className="csv-field-type">{FIELD_TYPE_LABELS[type]}</span>
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Preview table */}
+                <div>
+                  <label className="form-label">{t('ws.importCSVPreview')}</label>
+                  <div className="csv-preview-wrap">
+                    <table className="csv-preview-table">
+                      <thead>
+                        <tr>
+                          {csvParsed.headers.map((h, i) => (
+                            <th key={i} className={i === csvTitleCol ? 'csv-title-col' : ''}>{h || `Col ${i + 1}`}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvParsed.rows.slice(0, 8).map((row, ri) => (
+                          <tr key={ri}>
+                            {csvParsed!.headers.map((_, ci) => (
+                              <td key={ci} className={ci === csvTitleCol ? 'csv-title-col' : ''}>{row[ci] ?? ''}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {csvParsed.rows.length > 8 && (
+                      <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-disabled)', padding: '8px 0' }}>
+                        … +{csvParsed.rows.length - 8} more rows
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button className="btn btn-ghost" onClick={() => { setCsvParsed(null); setCsvAppName('') }}>
+                    {t('common.back')}
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleCSVImport}
+                    disabled={csvImporting || !csvAppName.trim()}
+                  >
+                    {csvImporting ? t('ws.importCSVImporting') : t('ws.importCSVImport')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
+        .csv-dropzone {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 48px 24px; margin: 8px 0 12px;
+          border: 2px dashed var(--border-default); border-radius: var(--radius-lg);
+          cursor: pointer; transition: all var(--transition-fast);
+        }
+        .csv-dropzone:hover, .csv-dropzone-active {
+          border-color: var(--brand-500); background: var(--brand-500)08;
+        }
+        .csv-field-tag {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 10px; font-size: 12px; font-weight: 500;
+          background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full); color: var(--text-primary);
+        }
+        .csv-field-title {
+          background: var(--brand-500)15; border-color: var(--brand-500)33; color: var(--brand-600); font-weight: 700;
+        }
+        .csv-field-type {
+          font-size: 10px; font-weight: 600; color: var(--text-tertiary);
+          text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .csv-preview-wrap {
+          border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+          overflow: auto; max-height: 260px;
+        }
+        .csv-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .csv-preview-table th {
+          background: var(--bg-elevated); position: sticky; top: 0; z-index: 1;
+          padding: 6px 10px; text-align: left; font-weight: 700; font-size: 11px;
+          color: var(--text-secondary); border-bottom: 1px solid var(--border-default);
+          white-space: nowrap;
+        }
+        .csv-preview-table td {
+          padding: 5px 10px; border-bottom: 1px solid var(--border-subtle);
+          max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          color: var(--text-primary);
+        }
+        .csv-sep-group {
+          display: flex; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden;
+        }
+        .csv-sep-btn {
+          flex: 1; padding: 7px 4px; font-size: 12px; font-weight: 600;
+          background: var(--bg-surface); border: none; color: var(--text-secondary);
+          cursor: pointer; transition: all var(--transition-fast);
+          border-right: 1px solid var(--border-subtle);
+        }
+        .csv-sep-btn:last-child { border-right: none; }
+        .csv-sep-btn:hover { background: var(--bg-hover); }
+        .csv-sep-active { background: var(--brand-500); color: #fff; }
+        .csv-sep-active:hover { background: var(--brand-600); }
+        .csv-title-col { background: var(--brand-500)08; }
         .ws-page-title-row { display: flex; align-items: center; gap: 12px; }
         .ws-page-emoji { font-size: 28px; }
         .ws-stats-row { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }

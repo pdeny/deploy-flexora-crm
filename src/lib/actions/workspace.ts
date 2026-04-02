@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { executeAutomations } from '@/lib/actions/automations'
 import { shouldNotify } from '@/lib/notifPrefs'
 import { getWorkspacePermissions, getAppPermissions } from '@/lib/permissions'
-import type { AppField } from '@/lib/types'
+import type { AppField, FieldType, CategoryOption } from '@/lib/types'
 
 function formatActivityValue(value: unknown, field?: AppField): string {
   if (value === null || value === undefined || value === '') return '(empty)'
@@ -82,6 +82,158 @@ export async function createApp(formData: FormData) {
 
   revalidatePath(`/dashboard/${workspaceId}`)
   return { app }
+}
+
+// ---- CSV import: create a full app from CSV data ----
+
+function inferFieldType(values: string[]): FieldType {
+  const samples = values.filter(v => v.trim() !== '').slice(0, 50)
+  if (samples.length === 0) return 'text'
+
+  const allMatch = (test: (v: string) => boolean) => samples.every(test)
+
+  // Toggle (yes/no, true/false, 1/0)
+  if (allMatch(v => /^(yes|no|true|false|si|sì|1|0)$/i.test(v.trim()))) return 'toggle'
+  // Number
+  if (allMatch(v => /^-?\d+([.,]\d+)?$/.test(v.trim().replace(/\s/g, '')))) return 'number'
+  // Date (ISO, dd/mm/yyyy, mm/dd/yyyy, etc.)
+  if (allMatch(v => !isNaN(Date.parse(v.trim())) && /\d/.test(v))) return 'date'
+  // Email
+  if (allMatch(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))) return 'email'
+  // URL
+  if (allMatch(v => /^https?:\/\/.+/i.test(v.trim()))) return 'url'
+  // Phone
+  if (allMatch(v => /^\+?[\d\s\-().]{7,}$/.test(v.trim()))) return 'phone'
+  // Rating (1-5 integers)
+  if (allMatch(v => /^[1-5]$/.test(v.trim()))) return 'rating'
+  // Progress (0-100)
+  if (allMatch(v => { const n = parseInt(v.trim()); return !isNaN(n) && n >= 0 && n <= 100 }) && samples.some(v => parseInt(v.trim()) > 5)) return 'progress'
+
+  // Category detection: if <=15 unique values and values repeat
+  const unique = new Set(samples.map(v => v.trim().toLowerCase()))
+  if (unique.size <= 15 && unique.size < samples.length * 0.6) return 'category'
+
+  return 'text'
+}
+
+function coerceValue(raw: string, type: FieldType): unknown {
+  const v = raw.trim()
+  if (!v) return undefined
+  switch (type) {
+    case 'number': return parseFloat(v.replace(/,/g, '.').replace(/\s/g, ''))
+    case 'date': return new Date(v).toISOString()
+    case 'toggle': return /^(yes|true|si|sì|1)$/i.test(v)
+    case 'rating': return Math.min(5, Math.max(1, parseInt(v)))
+    case 'progress': return Math.min(100, Math.max(0, parseInt(v)))
+    default: return v
+  }
+}
+
+export async function importAppFromCSV(data: {
+  workspaceId: string
+  appName: string
+  headers: string[]
+  rows: string[][]
+  titleColumnIndex: number
+  fieldTypes?: Record<number, FieldType> // col index → forced type override
+}) {
+  const user = await requireUser()
+  const { workspaceId, appName, headers, rows, titleColumnIndex, fieldTypes } = data
+
+  if (!workspaceId || !appName?.trim()) return { error: 'Workspace and name are required' }
+  if (!headers.length || !rows.length) return { error: 'CSV is empty' }
+
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('app:create')) return { error: 'Unauthorized' }
+
+  // Build fields from non-title columns
+  const fields: AppField[] = []
+  const colFieldMap: Record<number, string> = {} // colIndex → fieldId
+
+  headers.forEach((header, colIdx) => {
+    if (colIdx === titleColumnIndex) return
+    const name = header.trim()
+    if (!name) return
+
+    const colValues = rows.map(row => row[colIdx] ?? '')
+    const type = fieldTypes?.[colIdx] ?? inferFieldType(colValues)
+    const fieldId = `f-${Date.now()}-${colIdx}`
+
+    const field: AppField = { id: fieldId, name, type }
+
+    // For category fields, generate options from unique values
+    if (type === 'category') {
+      const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#e879f9', '#a855f7', '#22d3ee', '#facc15']
+      const unique = [...new Set(colValues.map(v => v.trim()).filter(Boolean))]
+      field.options = unique.map((label, i): CategoryOption => ({
+        id: `opt-${Date.now()}-${colIdx}-${i}`,
+        label,
+        color: colors[i % colors.length],
+      }))
+    }
+
+    fields.push(field)
+    colFieldMap[colIdx] = fieldId
+  })
+
+  // Create the app
+  const app = await prisma.app.create({
+    data: {
+      workspaceId,
+      name: appName.trim(),
+      iconEmoji: '📥',
+      color: '#6366f1',
+      fieldsJson: JSON.stringify(fields),
+    },
+  })
+
+  // Bulk create items
+  // Build a lookup for category label→optionId
+  const categoryLookup: Record<string, Record<string, string>> = {}
+  for (const f of fields) {
+    if (f.type === 'category' && f.options) {
+      categoryLookup[f.id] = {}
+      for (const opt of f.options) {
+        categoryLookup[f.id][opt.label.toLowerCase()] = opt.id
+      }
+    }
+  }
+
+  const itemsData = rows
+    .map(row => {
+      const title = (row[titleColumnIndex] ?? '').trim()
+      if (!title) return null
+
+      const itemData: Record<string, unknown> = {}
+      for (const [colIdxStr, fieldId] of Object.entries(colFieldMap)) {
+        const colIdx = parseInt(colIdxStr)
+        const raw = row[colIdx] ?? ''
+        if (!raw.trim()) continue
+        const field = fields.find(f => f.id === fieldId)!
+        if (field.type === 'category') {
+          const optId = categoryLookup[fieldId]?.[raw.trim().toLowerCase()]
+          if (optId) itemData[fieldId] = optId
+        } else {
+          const val = coerceValue(raw, field.type)
+          if (val !== undefined) itemData[fieldId] = val
+        }
+      }
+
+      return {
+        appId: app.id,
+        title,
+        dataJson: JSON.stringify(itemData),
+        creatorId: user.id,
+      }
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null)
+
+  if (itemsData.length > 0) {
+    await prisma.item.createMany({ data: itemsData })
+  }
+
+  revalidatePath(`/dashboard/${workspaceId}`)
+  return { app, importedCount: itemsData.length, skippedCount: rows.length - itemsData.length }
 }
 
 export async function updateAppFields(appId: string, fieldsJson: string) {

@@ -20,6 +20,7 @@ type Props = {
   app: AppInfo
   config: FormConfig
   fields: AppField[]
+  embed?: boolean
 }
 
 function FieldInput({
@@ -160,7 +161,7 @@ function FieldInput({
   }
 }
 
-export default function PublicFormClient({ token, app, config, fields }: Props) {
+export default function PublicFormClient({ token, app, config, fields, embed }: Props) {
   const [title, setTitle] = useState('')
   const [data, setData] = useState<Record<string, unknown>>({})
   const [isPending, startTransition] = useTransition()
@@ -195,45 +196,47 @@ export default function PublicFormClient({ token, app, config, fields }: Props) 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-base)',
+      background: embed ? 'transparent' : 'var(--bg-base)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '40px 16px 80px',
+      padding: embed ? '16px 16px 40px' : '40px 16px 80px',
     }}>
-      {/* Branding bar */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0,
-        height: 44,
-        borderBottom: '1px solid var(--border-subtle)',
-        background: 'var(--bg-surface)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px',
-        zIndex: 10,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: 7,
-            background: app.color + '22', border: `1px solid ${app.color}44`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15,
-          }}>{app.iconEmoji}</div>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{app.name}</span>
+      {/* Branding bar — hidden in embed mode */}
+      {!embed && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          height: 44,
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--bg-surface)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 20px',
+          zIndex: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: 7,
+              background: app.color + '22', border: `1px solid ${app.color}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15,
+            }}>{app.iconEmoji}</div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{app.name}</span>
+          </div>
+          <Link
+            href="/"
+            style={{
+              fontSize: 11, fontWeight: 700, color: 'var(--brand-400)',
+              textDecoration: 'none', padding: '3px 10px',
+              background: 'rgba(99,102,241,0.1)', borderRadius: 9999,
+              border: '1px solid rgba(99,102,241,0.2)',
+            }}
+          >
+            {t('form.poweredBy')}
+          </Link>
         </div>
-        <Link
-          href="/"
-          style={{
-            fontSize: 11, fontWeight: 700, color: 'var(--brand-400)',
-            textDecoration: 'none', padding: '3px 10px',
-            background: 'rgba(99,102,241,0.1)', borderRadius: 9999,
-            border: '1px solid rgba(99,102,241,0.2)',
-          }}
-        >
-          {t('form.poweredBy')}
-        </Link>
-      </div>
+      )}
 
-      <div style={{ width: '100%', maxWidth: 560, marginTop: 44 }}>
+      <div style={{ width: '100%', maxWidth: 560, marginTop: embed ? 0 : 44 }}>
         {submitted ? (
           // ── Success state ──────────────────────────────────────────────
           <div style={{
