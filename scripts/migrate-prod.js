@@ -12,13 +12,22 @@ const PRISMA_ADVISORY_LOCK_KEY = 72707369
 const url = process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL
 if (!url) { console.error('No DATABASE_URL for migrations'); process.exit(1) }
 
+function clientOpts() {
+  const opts = { connectionString: url, connectionTimeoutMillis: 30000 }
+  // Explicit SSL to avoid pg-connection-string deprecation warning
+  if (!url.includes('sslmode=disable')) {
+    opts.ssl = { rejectUnauthorized: true }
+  }
+  return opts
+}
+
 async function prepareDb() {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 30000 })
+  const client = new Client(clientOpts())
   await client.connect()
   try {
-    // Kill any sessions holding a stale Prisma advisory lock (e.g. from a crashed build)
+    // Find PIDs holding a stale Prisma advisory lock (e.g. from a crashed build)
     const stale = await client.query(
-      `SELECT pid FROM pg_locks WHERE locktype = 'advisory' AND objid = $1`,
+      `SELECT pid FROM pg_locks WHERE locktype = 'advisory' AND objid = $1 AND pid != pg_backend_pid()`,
       [PRISMA_ADVISORY_LOCK_KEY]
     )
     for (const row of stale.rows) {
@@ -27,6 +36,10 @@ async function prepareDb() {
     }
   } finally {
     await client.end().catch(() => {})
+  }
+  // Wait for terminated backends to fully disconnect
+  if ((await Promise.resolve(true))) {
+    await new Promise(r => setTimeout(r, 1000))
   }
 }
 
