@@ -559,6 +559,25 @@ export const it = {
   'header.chooseRelField': '— seleziona campo relazione —',
   'header.chooseLookupField': '— seleziona campo —',
 
+  // CSV Import (in-app)
+  'header.csvMode': 'Modalità',
+  'header.csvMode.create': 'Crea',
+  'header.csvMode.update': 'Aggiorna',
+  'header.csvMode.upsert': 'Entrambi',
+  'header.csvMode.create.desc': 'Crea solo nuovi elementi',
+  'header.csvMode.update.desc': 'Aggiorna solo elementi esistenti (corrispondenza per titolo)',
+  'header.csvMode.upsert.desc': 'Aggiorna esistenti, crea nuovi elementi',
+  'header.csvSeparator': 'Sep',
+  'header.csvMapColumns': 'Mappa colonne',
+  'header.csvRowsLabel': 'righe',
+  'header.csvSkip': '— Salta —',
+  'header.csvTitleRequired': 'Titolo (obbligatorio)',
+  'header.csvNoTitle': 'Mappa almeno una colonna a "Titolo"',
+  'header.csvDone': 'Importazione completata',
+  'header.csvCreated': '{n} creati',
+  'header.csvUpdated': '{n} aggiornati',
+  'header.csvSkipped': '{n} saltati',
+
   // Form Builder
   'formBuilder.title': 'Generatore Form',
   'formBuilder.tabDesign': 'Design',

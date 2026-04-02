@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateAppFields, createItem, updateApp, deleteApp, duplicateApp, searchItemsForRelation, addRelation } from '@/lib/actions/workspace'
+import { updateAppFields, createItem, updateApp, deleteApp, duplicateApp, searchItemsForRelation, addRelation, upsertItemsFromCSV } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
 import type { AppField, FieldType, CategoryOption, RollupFunction } from '@/lib/types'
@@ -157,11 +157,14 @@ export default function AppHeader({
 
   // CSV Import state
   const [showImportCSV, setShowImportCSV] = useState(false)
-  const [, setCsvText] = useState('')
+  const [csvRawText, setCsvRawText] = useState('')
   const [csvPreview, setCsvPreview] = useState<{ headers: string[]; rows: string[][] } | null>(null)
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({}) // csvHeader → fieldId or 'title'
   const [csvImporting, setCsvImporting] = useState(false)
-  const [csvImportResult, setCsvImportResult] = useState<{ ok: number; err: number } | null>(null)
+  const [csvImportResult, setCsvImportResult] = useState<{ created: number; updated: number; skipped: number } | null>(null)
+  const [csvSeparator, setCsvSeparator] = useState<',' | ';' | '.'>(',')
+  const [csvMode, setCsvMode] = useState<'create' | 'update' | 'upsert'>('upsert')
+  const [csvDragOver, setCsvDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Saved views (localStorage)
@@ -356,7 +359,7 @@ export default function AppHeader({
   }
 
   // ---- CSV helpers ----
-  function parseCSV(text: string): { headers: string[]; rows: string[][] } {
+  function parseCSV(text: string, sep: string = ','): { headers: string[]; rows: string[][] } {
     const lines = text.trim().split(/\r?\n/)
     function parseLine(line: string): string[] {
       const cells: string[] = []; let cur = ''; let inQ = false
@@ -365,7 +368,7 @@ export default function AppHeader({
         if (c === '"') {
           if (inQ && line[i+1] === '"') { cur += '"'; i++ }
           else inQ = !inQ
-        } else if (c === ',' && !inQ) { cells.push(cur); cur = '' }
+        } else if (c === sep && !inQ) { cells.push(cur); cur = '' }
         else cur += c
       }
       cells.push(cur)
@@ -376,26 +379,46 @@ export default function AppHeader({
     return { headers, rows }
   }
 
+  function detectSeparator(text: string): ',' | ';' | '.' {
+    const firstLine = text.split(/\r?\n/)[0] ?? ''
+    const commas = (firstLine.match(/,/g) ?? []).length
+    const semicolons = (firstLine.match(/;/g) ?? []).length
+    const dots = (firstLine.match(/\./g) ?? []).length
+    if (semicolons > commas && semicolons > dots) return ';'
+    if (dots > commas && dots > semicolons) return '.'
+    return ','
+  }
+
+  function autoMapHeaders(parsed: { headers: string[] }) {
+    const mapping: Record<string, string> = {}
+    parsed.headers.forEach(h => {
+      const lower = h.toLowerCase().trim()
+      if (lower === 'title' || lower === 'name' || lower === 'nome' || lower === 'titolo') { mapping[h] = 'title'; return }
+      const match = fields.find(f => f.name.toLowerCase() === lower)
+      if (match) mapping[h] = match.id
+    })
+    if (!Object.values(mapping).includes('title') && parsed.headers.length > 0) {
+      mapping[parsed.headers[0]] = 'title'
+    }
+    return mapping
+  }
+
+  function reparseCSV(text: string, sep: ',' | ';' | '.') {
+    const parsed = parseCSV(text, sep)
+    setCsvPreview(parsed)
+    setCsvMapping(autoMapHeaders(parsed))
+  }
+
   function handleCSVFile(file: File) {
     const reader = new FileReader()
     reader.onload = e => {
       const text = e.target?.result as string
-      setCsvText(text)
-      const parsed = parseCSV(text)
+      setCsvRawText(text)
+      const detectedSep = detectSeparator(text)
+      setCsvSeparator(detectedSep)
+      const parsed = parseCSV(text, detectedSep)
       setCsvPreview(parsed)
-      // Auto-map: title column → 'title', others try to match by name
-      const mapping: Record<string, string> = {}
-      parsed.headers.forEach(h => {
-        const lower = h.toLowerCase().trim()
-        if (lower === 'title' || lower === 'name') { mapping[h] = 'title'; return }
-        const match = fields.find(f => f.name.toLowerCase() === lower)
-        if (match) mapping[h] = match.id
-      })
-      // If no title mapped, map first column
-      if (!Object.values(mapping).includes('title') && parsed.headers.length > 0) {
-        mapping[parsed.headers[0]] = 'title'
-      }
-      setCsvMapping(mapping)
+      setCsvMapping(autoMapHeaders(parsed))
       setCsvImportResult(null)
     }
     reader.readAsText(file)
@@ -404,27 +427,19 @@ export default function AppHeader({
   async function handleCSVImport() {
     if (!csvPreview) return
     setCsvImporting(true)
-    let ok = 0, err = 0
-    for (const row of csvPreview.rows) {
-      let title = ''
-      const data: Record<string, unknown> = {}
-      csvPreview.headers.forEach((h, i) => {
-        const mapped = csvMapping[h]
-        if (!mapped) return
-        const val = (row[i] ?? '').trim()
-        if (mapped === 'title') title = val
-        else if (val) data[mapped] = val
-      })
-      if (!title) { err++; continue }
-      const fd = new FormData()
-      fd.set('appId', app.id)
-      fd.set('title', title)
-      fd.set('dataJson', JSON.stringify(data))
-      const result = await createItem(fd)
-      if (result?.error) err++; else ok++
-    }
+    const result = await upsertItemsFromCSV({
+      appId: app.id,
+      headers: csvPreview.headers,
+      rows: csvPreview.rows,
+      mapping: csvMapping,
+      mode: csvMode,
+    })
     setCsvImporting(false)
-    setCsvImportResult({ ok, err })
+    if ('error' in result) {
+      setCsvImportResult({ created: 0, updated: 0, skipped: 0 })
+    } else {
+      setCsvImportResult({ created: result.created, updated: result.updated, skipped: result.skipped })
+    }
   }
 
   return (
@@ -581,7 +596,7 @@ export default function AppHeader({
                   </svg>
                   {t('header.exportCSV')}
                 </button>
-                {can['item:create'] && <button className="app-more-item" onClick={() => { setShowMore(false); setCsvText(''); setCsvPreview(null); setCsvMapping({}); setCsvImportResult(null); setShowImportCSV(true) }}>
+                {can['item:create'] && <button className="app-more-item" onClick={() => { setShowMore(false); setCsvRawText(''); setCsvPreview(null); setCsvMapping({}); setCsvImportResult(null); setShowImportCSV(true) }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17 8 12 3 7 8"/>
@@ -1279,117 +1294,192 @@ export default function AppHeader({
         </div>
       )}
 
-      {/* ── Import CSV Modal ── */}
+      {/* ── Import CSV — inline collapsible section ── */}
       {showImportCSV && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowImportCSV(false)}>
-          <div className="modal modal-lg">
-            <div className="modal-header">
-              <h2 className="modal-title">{t('header.importCSV')}</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowImportCSV(false)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+        <div className="csv-import-panel">
+          <div className="csv-import-panel-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" strokeWidth="2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{t('header.importCSV')}</span>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setShowImportCSV(false); setCsvPreview(null); setCsvImportResult(null) }} style={{ padding: '4px 8px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          {csvImportResult ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{csvImportResult.skipped === 0 ? '✅' : '⚠️'}</div>
+              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
+                {t('header.csvDone')}
+              </p>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                {csvImportResult.created > 0 && <span style={{ color: 'var(--success)' }}>{t('header.csvCreated', { n: csvImportResult.created })}</span>}
+                {csvImportResult.updated > 0 && <span style={{ color: 'var(--brand-500)' }}>{t('header.csvUpdated', { n: csvImportResult.updated })}</span>}
+                {csvImportResult.skipped > 0 && <span style={{ color: 'var(--warning)' }}>{t('header.csvSkipped', { n: csvImportResult.skipped })}</span>}
+              </div>
+              <button className="btn btn-primary btn-sm" style={{ marginTop: 14 }} onClick={() => { setShowImportCSV(false); setCsvImportResult(null); setCsvPreview(null) }}>
+                {t('common.close')}
               </button>
             </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {!csvPreview ? (
-                <div
-                  style={{
-                    border: '2px dashed var(--border-default)', borderRadius: 12,
-                    padding: '48px 24px', textAlign: 'center', cursor: 'pointer',
-                    transition: 'border-color var(--transition-fast)',
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--brand-500)' }}
-                  onDragLeave={e => { e.currentTarget.style.borderColor = '' }}
-                  onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = ''; const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
-                >
-                  <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📂</div>
-                  <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('header.dragCSV')}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>{t('header.orBrowse')}</p>
-                  <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
-                  <p style={{ fontSize: 11, color: 'var(--text-disabled)' }}>First row must be headers. Title column is required.</p>
+          ) : !csvPreview ? (
+            <div
+              className={`csv-drop-area ${csvDragOver ? 'csv-drop-active' : ''}`}
+              onDragOver={e => { e.preventDefault(); setCsvDragOver(true) }}
+              onDragLeave={() => setCsvDragOver(false)}
+              onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input ref={fileInputRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6 }}>{t('header.dragCSV')}</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Mode + Separator row */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <label className="form-label">{t('header.csvMode')}</label>
+                  <div className="csv-mode-group">
+                    {(['upsert', 'update', 'create'] as const).map(m => (
+                      <button
+                        key={m}
+                        className={`csv-mode-btn ${csvMode === m ? 'csv-mode-active' : ''}`}
+                        onClick={() => setCsvMode(m)}
+                        title={t(`header.csvMode.${m}.desc` as LangKey)}
+                      >
+                        {t(`header.csvMode.${m}` as LangKey)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : csvImportResult ? (
-                <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>{csvImportResult.err === 0 ? '✅' : '⚠️'}</div>
-                  <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
-                    Import complete: {csvImportResult.ok} item{csvImportResult.ok !== 1 ? 's' : ''} created
-                  </p>
-                  {csvImportResult.err > 0 && (
-                    <p style={{ fontSize: 13, color: 'var(--warning)' }}>{csvImportResult.err} row{csvImportResult.err !== 1 ? 's' : ''} skipped (missing title)</p>
-                  )}
+                <div style={{ flex: 0, minWidth: 120 }}>
+                  <label className="form-label">{t('header.csvSeparator')}</label>
+                  <div className="csv-mode-group">
+                    {([',', ';', '.'] as const).map(sep => (
+                      <button
+                        key={sep}
+                        className={`csv-mode-btn ${csvSeparator === sep ? 'csv-mode-active' : ''}`}
+                        onClick={() => { setCsvSeparator(sep); reparseCSV(csvRawText, sep) }}
+                      >
+                        {sep === ',' ? ',' : sep === ';' ? ';' : '.'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                      Found <strong style={{ color: 'var(--text-primary)' }}>{csvPreview.rows.length} rows</strong>. Map CSV columns to fields:
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {csvPreview.headers.map(h => (
-                        <div key={h} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', padding: '6px 10px', background: 'var(--bg-elevated)', borderRadius: 6, fontFamily: 'monospace' }}>{h}</span>
-                          <select
-                            className="form-input form-select"
-                            value={csvMapping[h] ?? ''}
-                            onChange={e => setCsvMapping(m => ({ ...m, [h]: e.target.value }))}
-                            style={{ padding: '6px 28px 6px 10px', fontSize: 12 }}
-                          >
-                            <option value="">— Skip —</option>
-                            <option value="title">Title (required)</option>
-                            {fields.map(f => <option key={f.id} value={f.id}>{f.name} ({f.type})</option>)}
-                          </select>
-                        </div>
+              </div>
+
+              {/* Column mapping */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label className="form-label" style={{ margin: 0 }}>{t('header.csvMapColumns')}</label>
+                  <span style={{ fontSize: 11, color: 'var(--text-disabled)' }}>{csvPreview.rows.length} {t('header.csvRowsLabel')}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {csvPreview.headers.map(h => (
+                    <div key={h} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, padding: '5px 8px', background: 'var(--bg-elevated)', borderRadius: 6, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</span>
+                      <select
+                        className="form-input form-select"
+                        value={csvMapping[h] ?? ''}
+                        onChange={e => setCsvMapping(m => ({ ...m, [h]: e.target.value }))}
+                        style={{ padding: '5px 28px 5px 8px', fontSize: 12 }}
+                      >
+                        <option value="">{t('header.csvSkip')}</option>
+                        <option value="title">{t('header.csvTitleRequired')}</option>
+                        {fields.map(f => <option key={f.id} value={f.id}>{f.name} ({f.type})</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                {!Object.values(csvMapping).includes('title') && (
+                  <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 8 }}>{t('header.csvNoTitle')}</p>
+                )}
+              </div>
+
+              {/* Preview */}
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ overflowX: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                    <thead>
+                      <tr>{csvPreview.headers.map(h => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-disabled)', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-subtle)' }}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {csvPreview.rows.slice(0, 4).map((row, i) => (
+                        <tr key={i}>{csvPreview.headers.map((_, j) => <td key={j} style={{ padding: '5px 8px', whiteSpace: 'nowrap', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{row[j] ?? ''}</td>)}</tr>
                       ))}
-                    </div>
-                    {!Object.values(csvMapping).includes('title') && (
-                      <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 10 }}>⚠ Map at least one column to &quot;Title&quot;</p>
-                    )}
-                  </div>
-                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-disabled)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Preview (first 3 rows)
-                    </p>
-                    <div style={{ overflowX: 'auto', padding: '8px 12px', fontSize: 11, color: 'var(--text-secondary)' }}>
-                      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                        <thead>
-                          <tr>{csvPreview.headers.map(h => <th key={h} style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-disabled)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
-                        </thead>
-                        <tbody>
-                          {csvPreview.rows.slice(0, 3).map((row, i) => (
-                            <tr key={i}>{csvPreview.headers.map((_, j) => <td key={j} style={{ padding: '4px 8px', whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{row[j] ?? ''}</td>)}</tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
+                    </tbody>
+                  </table>
+                </div>
+                {csvPreview.rows.length > 4 && (
+                  <p style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-disabled)', padding: '4px 0' }}>+{csvPreview.rows.length - 4} more</p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setCsvPreview(null); setCsvRawText('') }}>
+                  {t('common.back')}
+                </button>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleCSVImport}
+                  disabled={csvImporting || !Object.values(csvMapping).includes('title')}
+                >
+                  {csvImporting ? <><span className="spinner" style={{ width: 12, height: 12 }} /> {t('header.importBtn')}…</> : t('header.importBtn')}
+                </button>
+              </div>
             </div>
-            <div className="modal-footer">
-              {csvImportResult ? (
-                <button className="btn btn-primary" onClick={() => setShowImportCSV(false)}>Done</button>
-              ) : csvPreview ? (
-                <>
-                  <button className="btn btn-secondary" onClick={() => setCsvPreview(null)}>← Back</button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleCSVImport}
-                    disabled={csvImporting || !Object.values(csvMapping).includes('title')}
-                  >
-                    {csvImporting ? <><span className="spinner" style={{ width: 13, height: 13 }} /> {t('header.importBtn')}…</> : t('header.importBtn')}
-                  </button>
-                </>
-              ) : (
-                <button className="btn btn-secondary" onClick={() => setShowImportCSV(false)}>{t('common.cancel')}</button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
       <style>{`
+        .csv-import-panel {
+          background: var(--bg-surface);
+          border: 1px solid var(--brand-500)33;
+          border-radius: var(--radius-lg);
+          padding: 14px 18px;
+          margin: 0 20px 12px;
+          animation: csvSlide 200ms ease-out;
+        }
+        @keyframes csvSlide {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .csv-import-panel-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 10px;
+        }
+        .csv-drop-area {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 28px 20px; border: 2px dashed var(--border-default);
+          border-radius: var(--radius-md); cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+        .csv-drop-area:hover, .csv-drop-active {
+          border-color: var(--brand-500); background: rgba(99,102,241,0.04);
+        }
+        .csv-mode-group {
+          display: flex; border: 1px solid var(--border-default);
+          border-radius: var(--radius-md); overflow: hidden;
+        }
+        .csv-mode-btn {
+          flex: 1; padding: 6px 6px; font-size: 11px; font-weight: 600;
+          background: var(--bg-surface); border: none; color: var(--text-secondary);
+          cursor: pointer; transition: all var(--transition-fast);
+          border-right: 1px solid var(--border-subtle); white-space: nowrap;
+        }
+        .csv-mode-btn:last-child { border-right: none; }
+        .csv-mode-btn:hover { background: var(--bg-hover); }
+        .csv-mode-active { background: var(--brand-500); color: #fff; }
+        .csv-mode-active:hover { background: var(--brand-600); }
         .app-header-bar {
           display: flex;
           align-items: center;

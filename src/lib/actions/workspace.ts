@@ -236,6 +236,112 @@ export async function importAppFromCSV(data: {
   return { app, importedCount: itemsData.length, skippedCount: rows.length - itemsData.length }
 }
 
+export async function upsertItemsFromCSV(data: {
+  appId: string
+  headers: string[]
+  rows: string[][]
+  mapping: Record<string, string> // csvHeader → fieldId | 'title'
+  mode: 'create' | 'update' | 'upsert'
+}) {
+  const user = await requireUser()
+  const { appId, headers, rows, mapping, mode } = data
+
+  if (!appId) return { error: 'App ID is required' }
+
+  const perms = await getAppPermissions(user.id, appId).catch(() => null)
+  if (mode === 'create' && !perms?.can('item:create')) return { error: 'Unauthorized' }
+  if (mode !== 'create' && !perms?.can('item:update')) return { error: 'Unauthorized' }
+
+  const app = await prisma.app.findUnique({ where: { id: appId } })
+  if (!app) return { error: 'App not found' }
+
+  const fields: AppField[] = JSON.parse(app.fieldsJson)
+
+  // Build title→item lookup for update/upsert modes
+  let existingByTitle: Map<string, { id: string; dataJson: string }> | null = null
+  if (mode !== 'create') {
+    const items = await prisma.item.findMany({
+      where: { appId },
+      select: { id: true, title: true, dataJson: true },
+    })
+    existingByTitle = new Map(items.map(i => [i.title.toLowerCase().trim(), { id: i.id, dataJson: i.dataJson }]))
+  }
+
+  // Resolve category label → option id
+  const categoryLookup: Record<string, Record<string, string>> = {}
+  for (const f of fields) {
+    if (f.type === 'category' && f.options) {
+      categoryLookup[f.id] = {}
+      for (const opt of f.options) {
+        categoryLookup[f.id][opt.label.toLowerCase()] = opt.id
+      }
+    }
+  }
+
+  let created = 0, updated = 0, skipped = 0
+
+  for (const row of rows) {
+    let title = ''
+    const rowData: Record<string, unknown> = {}
+
+    headers.forEach((h, i) => {
+      const mapped = mapping[h]
+      if (!mapped) return
+      const val = (row[i] ?? '').trim()
+      if (mapped === 'title') { title = val; return }
+      if (!val) return
+
+      const field = fields.find(f => f.id === mapped)
+      if (!field) { rowData[mapped] = val; return }
+
+      if (field.type === 'category') {
+        const optId = categoryLookup[mapped]?.[val.toLowerCase()]
+        if (optId) rowData[mapped] = optId
+        else rowData[mapped] = val
+      } else if (field.type === 'number') {
+        rowData[mapped] = parseFloat(val.replace(/,/g, '.').replace(/\s/g, ''))
+      } else if (field.type === 'toggle') {
+        rowData[mapped] = /^(yes|true|si|sì|1)$/i.test(val)
+      } else if (field.type === 'date') {
+        const d = new Date(val)
+        rowData[mapped] = isNaN(d.getTime()) ? val : d.toISOString()
+      } else if (field.type === 'rating') {
+        rowData[mapped] = Math.min(5, Math.max(1, parseInt(val)))
+      } else if (field.type === 'progress') {
+        rowData[mapped] = Math.min(100, Math.max(0, parseInt(val)))
+      } else {
+        rowData[mapped] = val
+      }
+    })
+
+    if (!title) { skipped++; continue }
+
+    const existing = existingByTitle?.get(title.toLowerCase().trim())
+
+    if (existing && mode !== 'create') {
+      // Merge: existing data + new CSV data (CSV values overwrite)
+      let oldData: Record<string, unknown> = {}
+      try { oldData = JSON.parse(existing.dataJson) } catch { /* ignore */ }
+      const merged = { ...oldData, ...rowData }
+      await prisma.item.update({
+        where: { id: existing.id },
+        data: { title, dataJson: JSON.stringify(merged) },
+      })
+      updated++
+    } else if (mode !== 'update') {
+      await prisma.item.create({
+        data: { appId, title, dataJson: JSON.stringify(rowData), creatorId: user.id },
+      })
+      created++
+    } else {
+      skipped++ // update mode but no existing item found
+    }
+  }
+
+  revalidatePath(`/dashboard/${perms!.workspaceId}/${appId}`)
+  return { created, updated, skipped }
+}
+
 export async function updateAppFields(appId: string, fieldsJson: string) {
   const user = await requireUser()
   const perms = await getAppPermissions(user.id, appId).catch(() => null)

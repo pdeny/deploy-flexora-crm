@@ -561,6 +561,25 @@ export const en: LangDict = {
   'header.chooseRelField': '— select relation field —',
   'header.chooseLookupField': '— select field —',
 
+  // CSV Import (in-app)
+  'header.csvMode': 'Mode',
+  'header.csvMode.create': 'Create',
+  'header.csvMode.update': 'Update',
+  'header.csvMode.upsert': 'Both',
+  'header.csvMode.create.desc': 'Only create new items',
+  'header.csvMode.update.desc': 'Only update existing items (match by title)',
+  'header.csvMode.upsert.desc': 'Update existing, create new items',
+  'header.csvSeparator': 'Sep',
+  'header.csvMapColumns': 'Map columns',
+  'header.csvRowsLabel': 'rows',
+  'header.csvSkip': '— Skip —',
+  'header.csvTitleRequired': 'Title (required)',
+  'header.csvNoTitle': 'Map at least one column to "Title"',
+  'header.csvDone': 'Import complete',
+  'header.csvCreated': '{n} created',
+  'header.csvUpdated': '{n} updated',
+  'header.csvSkipped': '{n} skipped',
+
   // Form Builder
   'formBuilder.title': 'Form Builder',
   'formBuilder.tabDesign': 'Design',
