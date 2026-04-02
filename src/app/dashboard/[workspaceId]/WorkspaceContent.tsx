@@ -211,8 +211,8 @@ export default function WorkspaceContent({
         <div className="page-header-actions" style={{ display: 'flex', gap: 8 }}>
           {can['app:create'] && <>
             <button
-              className="btn btn-secondary"
-              onClick={() => setShowCSVImport(true)}
+              className={`btn ${showCSVImport ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => { setShowCSVImport(o => !o); if (showCSVImport) { setCsvParsed(null); setCsvAppName('') } }}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -224,6 +224,145 @@ export default function WorkspaceContent({
           </>}
         </div>
       </div>
+
+      {/* CSV Import — collapsible inline section */}
+      {showCSVImport && can['app:create'] && (
+        <div className="csv-import-section">
+          <div className="csv-import-section-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" strokeWidth="2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{t('ws.importCSVTitle')}</span>
+            </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setShowCSVImport(false); setCsvParsed(null); setCsvAppName('') }}
+              style={{ padding: '4px 8px' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          {!csvParsed ? (
+            <div
+              className={`csv-dropzone ${csvDragOver ? 'csv-dropzone-active' : ''}`}
+              onDragOver={e => { e.preventDefault(); setCsvDragOver(true) }}
+              onDragLeave={() => setCsvDragOver(false)}
+              onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
+              onClick={() => csvFileRef.current?.click()}
+            >
+              <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 8 }}>{t('ws.importCSVDrop')}</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* App name + separator + title column */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 2, minWidth: 180 }}>
+                  <label className="form-label">{t('ws.importCSVAppName')}</label>
+                  <input className="form-input" value={csvAppName} onChange={e => setCsvAppName(e.target.value)} />
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <label className="form-label">{t('ws.importCSVSeparator')}</label>
+                  <div className="csv-sep-group">
+                    {([',', ';', '.'] as const).map(sep => (
+                      <button
+                        key={sep}
+                        className={`csv-sep-btn ${csvSeparator === sep ? 'csv-sep-active' : ''}`}
+                        onClick={() => { setCsvSeparator(sep); reparseCSV(csvRawText, sep) }}
+                      >
+                        {sep === ',' ? t('ws.importCSVSepComma') : sep === ';' ? t('ws.importCSVSepSemicolon') : t('ws.importCSVSepDot')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label className="form-label">{t('ws.importCSVTitleCol')}</label>
+                  <select className="form-input" value={csvTitleCol} onChange={e => setCsvTitleCol(Number(e.target.value))}>
+                    {csvParsed.headers.map((h, i) => (
+                      <option key={i} value={i}>{h || `Column ${i + 1}`}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Stats + fields */}
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
+                <span>{t('ws.importCSVRows', { n: csvParsed.rows.length })}</span>
+                <span>{t('ws.importCSVCols', { n: csvParsed.headers.length })}</span>
+              </div>
+
+              <div>
+                <label className="form-label">{t('ws.importCSVFields')}</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {csvParsed.headers.map((h, i) => {
+                    if (i === csvTitleCol) return (
+                      <span key={i} className="csv-field-tag csv-field-title">Title: {h}</span>
+                    )
+                    const colValues = csvParsed!.rows.map(row => row[i] ?? '')
+                    const type = inferFieldTypeClient(colValues)
+                    return (
+                      <span key={i} className="csv-field-tag">
+                        {h} <span className="csv-field-type">{FIELD_TYPE_LABELS[type]}</span>
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Preview table */}
+              <div>
+                <label className="form-label">{t('ws.importCSVPreview')}</label>
+                <div className="csv-preview-wrap">
+                  <table className="csv-preview-table">
+                    <thead>
+                      <tr>
+                        {csvParsed.headers.map((h, i) => (
+                          <th key={i} className={i === csvTitleCol ? 'csv-title-col' : ''}>{h || `Col ${i + 1}`}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvParsed.rows.slice(0, 6).map((row, ri) => (
+                        <tr key={ri}>
+                          {csvParsed!.headers.map((_, ci) => (
+                            <td key={ci} className={ci === csvTitleCol ? 'csv-title-col' : ''}>{row[ci] ?? ''}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {csvParsed.rows.length > 6 && (
+                    <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-disabled)', padding: '6px 0' }}>
+                      … +{csvParsed.rows.length - 6} more rows
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => { setCsvParsed(null); setCsvAppName('') }}>
+                  {t('common.back')}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleCSVImport}
+                  disabled={csvImporting || !csvAppName.trim()}
+                >
+                  {csvImporting ? t('ws.importCSVImporting') : t('ws.importCSVImport')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="ws-stats-row">
@@ -395,140 +534,27 @@ export default function WorkspaceContent({
         </div>
       </div>
 
-      {/* CSV Import Modal */}
-      {showCSVImport && (
-        <div className="modal-overlay" onClick={() => !csvImporting && setShowCSVImport(false)}>
-          <div className="modal-content" style={{ maxWidth: 720, maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">{t('ws.importCSVTitle')}</h2>
-              <button className="modal-close" onClick={() => !csvImporting && setShowCSVImport(false)}>&times;</button>
-            </div>
-
-            {!csvParsed ? (
-              <div
-                className={`csv-dropzone ${csvDragOver ? 'csv-dropzone-active' : ''}`}
-                onDragOver={e => { e.preventDefault(); setCsvDragOver(true) }}
-                onDragLeave={() => setCsvDragOver(false)}
-                onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
-                onClick={() => csvFileRef.current?.click()}
-              >
-                <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 10 }}>{t('ws.importCSVDrop')}</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '0 0 8px' }}>
-                {/* App name + separator + title column */}
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 2, minWidth: 180 }}>
-                    <label className="form-label">{t('ws.importCSVAppName')}</label>
-                    <input className="form-input" value={csvAppName} onChange={e => setCsvAppName(e.target.value)} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <label className="form-label">{t('ws.importCSVSeparator')}</label>
-                    <div className="csv-sep-group">
-                      {([',', ';', '.'] as const).map(sep => (
-                        <button
-                          key={sep}
-                          className={`csv-sep-btn ${csvSeparator === sep ? 'csv-sep-active' : ''}`}
-                          onClick={() => { setCsvSeparator(sep); reparseCSV(csvRawText, sep) }}
-                        >
-                          {sep === ',' ? t('ws.importCSVSepComma') : sep === ';' ? t('ws.importCSVSepSemicolon') : t('ws.importCSVSepDot')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 160 }}>
-                    <label className="form-label">{t('ws.importCSVTitleCol')}</label>
-                    <select className="form-input" value={csvTitleCol} onChange={e => setCsvTitleCol(Number(e.target.value))}>
-                      {csvParsed.headers.map((h, i) => (
-                        <option key={i} value={i}>{h || `Column ${i + 1}`}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
-                  <span>{t('ws.importCSVRows', { n: csvParsed.rows.length })}</span>
-                  <span>{t('ws.importCSVCols', { n: csvParsed.headers.length })}</span>
-                </div>
-
-                {/* Detected fields */}
-                <div>
-                  <label className="form-label">{t('ws.importCSVFields')}</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {csvParsed.headers.map((h, i) => {
-                      if (i === csvTitleCol) return (
-                        <span key={i} className="csv-field-tag csv-field-title">Title: {h}</span>
-                      )
-                      const colValues = csvParsed!.rows.map(row => row[i] ?? '')
-                      const type = inferFieldTypeClient(colValues)
-                      return (
-                        <span key={i} className="csv-field-tag">
-                          {h} <span className="csv-field-type">{FIELD_TYPE_LABELS[type]}</span>
-                        </span>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Preview table */}
-                <div>
-                  <label className="form-label">{t('ws.importCSVPreview')}</label>
-                  <div className="csv-preview-wrap">
-                    <table className="csv-preview-table">
-                      <thead>
-                        <tr>
-                          {csvParsed.headers.map((h, i) => (
-                            <th key={i} className={i === csvTitleCol ? 'csv-title-col' : ''}>{h || `Col ${i + 1}`}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {csvParsed.rows.slice(0, 8).map((row, ri) => (
-                          <tr key={ri}>
-                            {csvParsed!.headers.map((_, ci) => (
-                              <td key={ci} className={ci === csvTitleCol ? 'csv-title-col' : ''}>{row[ci] ?? ''}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {csvParsed.rows.length > 8 && (
-                      <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-disabled)', padding: '8px 0' }}>
-                        … +{csvParsed.rows.length - 8} more rows
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button className="btn btn-ghost" onClick={() => { setCsvParsed(null); setCsvAppName('') }}>
-                    {t('common.back')}
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleCSVImport}
-                    disabled={csvImporting || !csvAppName.trim()}
-                  >
-                    {csvImporting ? t('ws.importCSVImporting') : t('ws.importCSVImport')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <style>{`
+        .csv-import-section {
+          background: var(--bg-surface);
+          border: 1px solid var(--brand-500)33;
+          border-radius: var(--radius-lg);
+          padding: 16px 20px;
+          margin-bottom: 24px;
+          animation: csv-slide-in 200ms ease-out;
+        }
+        @keyframes csv-slide-in {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .csv-import-section-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 12px;
+        }
         .csv-dropzone {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          padding: 48px 24px; margin: 8px 0 12px;
-          border: 2px dashed var(--border-default); border-radius: var(--radius-lg);
+          padding: 32px 24px;
+          border: 2px dashed var(--border-default); border-radius: var(--radius-md);
           cursor: pointer; transition: all var(--transition-fast);
         }
         .csv-dropzone:hover, .csv-dropzone-active {
