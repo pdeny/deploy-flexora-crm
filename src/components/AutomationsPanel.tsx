@@ -891,7 +891,7 @@ const styles = `
 .wf-page {
   display: flex;
   gap: 28px;
-  padding: 28px 32px;
+  padding: 28px 32px 80px;
   max-width: 1100px;
 }
 .wf-main {
