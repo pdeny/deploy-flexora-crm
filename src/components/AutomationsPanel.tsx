@@ -746,8 +746,8 @@ export default function AutomationsPanel({ appId, workspaceId, automations, fiel
     }
 
     return (
-      <div style={{ display: 'flex', gap: 32, padding: '24px 32px', maxWidth: 1100 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="wf-page">
+        <div className="wf-main">
           <WorkflowBuilder
             appId={appId}
             fields={fields}
@@ -760,29 +760,35 @@ export default function AutomationsPanel({ appId, workspaceId, automations, fiel
 
         {/* Right sidebar: How it works */}
         <div className="wf-sidebar">
-          <h3 className="wf-sidebar-title">{t('auto.builder.howItWorks')}</h3>
-          <div className="wf-sidebar-item">
-            <div className="wf-sidebar-num">1</div>
-            <div>
-              <strong>{t('auto.builder.step1')}</strong>
-              <p>{t('auto.builder.howTrigger')}</p>
-            </div>
+          <div className="wf-sidebar-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <h3 className="wf-sidebar-title">{t('auto.builder.howItWorks')}</h3>
           </div>
-          <div className="wf-sidebar-item">
-            <div className="wf-sidebar-num">2</div>
-            <div>
-              <strong>{t('auto.builder.step2')}</strong>
-              <p>{t('auto.builder.howCondition')}</p>
+          <div className="wf-sidebar-steps">
+            <div className="wf-sidebar-item">
+              <div className="wf-sidebar-num">1</div>
+              <div>
+                <strong>{t('auto.builder.step1')}</strong>
+                <p>{t('auto.builder.howTrigger')}</p>
+              </div>
             </div>
-          </div>
-          <div className="wf-sidebar-item">
-            <div className="wf-sidebar-num">3</div>
-            <div>
-              <strong>{t('auto.builder.step3')}</strong>
-              <p>{t('auto.builder.howAction')}</p>
+            <div className="wf-sidebar-item">
+              <div className="wf-sidebar-num">2</div>
+              <div>
+                <strong>{t('auto.builder.step2')}</strong>
+                <p>{t('auto.builder.howCondition')}</p>
+              </div>
+            </div>
+            <div className="wf-sidebar-item">
+              <div className="wf-sidebar-num">3</div>
+              <div>
+                <strong>{t('auto.builder.step3')}</strong>
+                <p>{t('auto.builder.howAction')}</p>
+              </div>
             </div>
           </div>
         </div>
+        <style>{styles}</style>
       </div>
     )
   }
@@ -833,7 +839,9 @@ export default function AutomationsPanel({ appId, workspaceId, automations, fiel
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = `
-/* Automation card */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Automation list cards
+   ═══════════════════════════════════════════════════════════════════════════ */
 .automation-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -843,10 +851,7 @@ const styles = `
 }
 .automation-card.active { border-color: rgba(99,102,241,0.3); }
 .automation-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
 }
 .automation-status-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
@@ -861,8 +866,6 @@ const styles = `
   background: rgba(99,102,241,0.15); color: var(--brand-400);
   border-radius: 9999px; font-size: 10px; font-weight: 600;
 }
-
-/* Toggle */
 .toggle-switch {
   width: 36px; height: 20px; border-radius: 9999px; border: none; cursor: pointer;
   padding: 2px; position: relative; transition: background var(--transition-fast); flex-shrink: 0;
@@ -876,30 +879,49 @@ const styles = `
 }
 .toggle-switch.on .toggle-thumb { transform: translateX(16px); }
 .toggle-switch.off .toggle-thumb { transform: translateX(0); }
-
-/* Icon button */
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; padding: 0; color: var(--text-tertiary);
 }
 .icon-btn:hover { color: var(--error); background: rgba(239,68,68,0.1); }
 
-/* Workflow builder */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Workflow builder — Page layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+.wf-page {
+  display: flex;
+  gap: 28px;
+  padding: 28px 32px;
+  max-width: 1100px;
+}
+.wf-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Workflow builder — Stepper
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-builder {
-  display: flex; flex-direction: column; gap: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   position: relative;
+  padding-left: 4px;
 }
 .wf-builder::before {
   content: '';
   position: absolute;
-  left: 17px;
-  top: 24px;
-  bottom: 24px;
+  left: 21px;
+  top: 40px;
+  bottom: 40px;
   width: 2px;
-  background: var(--border-subtle);
+  background: linear-gradient(to bottom, var(--brand-500) 0%, var(--border-subtle) 50%, var(--success) 100%);
+  opacity: 0.4;
   z-index: 0;
 }
 
+/* ── Step block ────────────────────────────────────────────────────────── */
 .wf-step {
   position: relative;
   z-index: 1;
@@ -908,195 +930,359 @@ const styles = `
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 0 8px;
+  padding: 20px 0 10px;
 }
 .wf-step-number {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: var(--brand-500); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 14; flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(99,102,241,0.35);
+  border: 3px solid var(--bg-surface);
 }
 .wf-step-check {
   background: var(--success);
-  box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+  box-shadow: 0 3px 12px rgba(34,197,94,0.35);
 }
 .wf-step-title {
-  font-size: 16px; font-weight: 700; color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 .wf-step-subtitle {
-  font-size: 12px; color: var(--text-tertiary); margin-top: 1px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
 }
 .wf-step-body {
-  margin-left: 50px;
-  padding: 8px 0 20px;
+  margin-left: 56px;
+  padding: 4px 0 28px;
 }
 
-/* Trigger cards */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Step 1 — Trigger cards
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-trigger-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
 .wf-trigger-card {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 16px 12px; background: var(--bg-card);
-  border: 2px solid var(--border-subtle); border-radius: var(--radius-md);
-  cursor: pointer; transition: all var(--transition-fast);
-  font-family: inherit; color: var(--text-secondary); font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px 16px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-subtle);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  color: var(--text-secondary);
+  font-size: 12px;
   position: relative;
 }
 .wf-trigger-card:hover:not(.disabled) {
   border-color: var(--brand-400);
-  background: var(--bg-hover);
+  background: rgba(99,102,241,0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(99,102,241,0.12);
 }
 .wf-trigger-card.selected {
   border-color: var(--brand-500);
   background: rgba(99,102,241,0.08);
   color: var(--text-primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15), 0 4px 16px rgba(99,102,241,0.12);
 }
 .wf-trigger-card.disabled {
-  opacity: 0.4; cursor: not-allowed;
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .wf-trigger-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  background: rgba(99,102,241,0.1);
-  display: flex; align-items: center; justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--brand-400);
+  transition: all 0.18s ease;
 }
 .wf-trigger-card.selected .wf-trigger-icon {
-  background: rgba(99,102,241,0.2);
+  background: rgba(99,102,241,0.18);
+  border-color: rgba(99,102,241,0.3);
   color: var(--brand-500);
 }
-.wf-trigger-label { font-weight: 600; text-align: center; }
+.wf-trigger-label {
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
 .wf-trigger-desc {
-  margin-top: 10px; padding: 10px 14px;
-  background: var(--bg-hover); border-radius: 8px;
-  font-size: 13px; color: var(--text-tertiary);
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(99,102,241,0.04);
+  border: 1px solid rgba(99,102,241,0.1);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
 }
 .wf-badge-soon {
-  position: absolute; top: 6px; right: 6px;
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  padding: 2px 6px; background: var(--bg-elevated);
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-default);
-  border-radius: 4px; color: var(--text-disabled);
-  letter-spacing: 0.5px;
+  border-radius: 4px;
+  color: var(--text-disabled);
+  letter-spacing: 0.6px;
 }
 
-/* Condition rows */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Step 2 — Condition rows
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-condition-row {
-  display: flex; gap: 8px; align-items: center; margin-bottom: 6px;
-  flex-wrap: wrap;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
 }
-.wf-cond-select { flex: 1; min-width: 130px; font-size: 13px; }
-.wf-cond-value { flex: 1; min-width: 100px; font-size: 13px; }
+.wf-cond-select {
+  flex: 1;
+  min-width: 130px;
+  font-size: 13px;
+}
+.wf-cond-value {
+  flex: 1;
+  min-width: 100px;
+  font-size: 13px;
+}
 .wf-cond-remove {
-  width: 28px; height: 28px; border-radius: 6px;
-  background: none; border: 1px solid var(--border-subtle);
-  color: var(--text-disabled); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all var(--transition-fast); flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-disabled);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 .wf-cond-remove:hover {
-  color: var(--error); border-color: var(--error);
-  background: rgba(239,68,68,0.08);
+  color: var(--error);
+  border-color: rgba(239,68,68,0.25);
+  background: rgba(239,68,68,0.06);
 }
 
-/* Action cards */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Step 3 — Action palette + configured actions
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .wf-action-card {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 14px 10px; background: var(--bg-card);
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  cursor: pointer; transition: all var(--transition-fast);
-  font-family: inherit; color: var(--text-secondary); font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px 14px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 .wf-action-card:hover:not(.disabled) {
+  border-style: solid;
   border-color: var(--brand-400);
-  background: var(--bg-hover);
+  background: rgba(99,102,241,0.04);
   transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(99,102,241,0.1);
 }
-.wf-action-card.disabled { opacity: 0.4; cursor: not-allowed; }
+.wf-action-card.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .wf-action-icon {
-  width: 36px; height: 36px; border-radius: 8px;
-  background: rgba(99,102,241,0.08);
-  display: flex; align-items: center; justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(99,102,241,0.06);
+  border: 1px solid rgba(99,102,241,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--brand-400);
+  transition: all 0.18s ease;
 }
-.wf-action-label { font-weight: 600; text-align: center; line-height: 1.2; }
+.wf-action-card:hover:not(.disabled) .wf-action-icon {
+  background: rgba(99,102,241,0.12);
+  border-color: rgba(99,102,241,0.2);
+}
+.wf-action-label {
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
 
-/* Action list items */
+/* Added actions list */
 .wf-actions-list {
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .wf-action-item {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+.wf-action-item:hover {
+  border-color: rgba(99,102,241,0.25);
 }
 .wf-action-item-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
 }
 .wf-action-item-icon {
-  width: 28px; height: 28px; border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: rgba(99,102,241,0.1);
-  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(99,102,241,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--brand-400);
 }
 .wf-action-config {
-  padding: 14px;
-  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* Sidebar */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Right sidebar — How it works
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-sidebar {
-  width: 260px; flex-shrink: 0;
-  padding: 20px; background: var(--bg-card);
+  width: 270px;
+  flex-shrink: 0;
+  padding: 22px;
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  height: fit-content; position: sticky; top: 24px;
+  border-radius: 14px;
+  height: fit-content;
+  position: sticky;
+  top: 24px;
+}
+.wf-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .wf-sidebar-title {
-  font-size: 15px; font-weight: 700; color: var(--text-primary);
-  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+.wf-sidebar-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 .wf-sidebar-item {
-  display: flex; gap: 10px; margin-bottom: 14px;
+  display: flex;
+  gap: 12px;
 }
 .wf-sidebar-item strong {
-  font-size: 13px; color: var(--text-primary);
+  font-size: 13px;
+  color: var(--text-primary);
+  display: block;
 }
 .wf-sidebar-item p {
-  font-size: 12px; color: var(--text-tertiary); margin: 3px 0 0; line-height: 1.4;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
+  line-height: 1.5;
 }
 .wf-sidebar-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--brand-500); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(99,102,241,0.25);
 }
 
-/* Utility */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Utility
+   ═══════════════════════════════════════════════════════════════════════════ */
 .wf-muted {
-  font-size: 13px; color: var(--text-disabled); font-style: italic;
+  font-size: 13px;
+  color: var(--text-disabled);
+  font-style: italic;
   margin: 0;
 }
 
-@media (max-width: 768px) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
   .wf-sidebar { display: none; }
+  .wf-page { padding: 20px 16px; }
+}
+@media (max-width: 640px) {
   .wf-trigger-grid { grid-template-columns: 1fr 1fr; }
   .wf-action-grid { grid-template-columns: 1fr 1fr; }
-  .wf-condition-row { flex-direction: column; }
+  .wf-condition-row { flex-direction: column; padding: 10px; }
   .wf-cond-select, .wf-cond-value { min-width: 0; width: 100%; }
+  .wf-step-body { margin-left: 46px; }
 }
 `
