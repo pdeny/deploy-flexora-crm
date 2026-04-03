@@ -123,15 +123,13 @@ export default function SearchModal() {
   if (!open) {
     return (
       <button
-        className="search-trigger-btn"
+        className="search-trigger-icon"
         onClick={() => setOpen(true)}
         title="Search (⌘K)"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span>{t('search.placeholder')}</span>
-        <kbd>⌘K</kbd>
       </button>
     )
   }
@@ -139,6 +137,19 @@ export default function SearchModal() {
   return (
     <div className="search-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
       <div className="search-modal">
+        {/* Header */}
+        <div className="search-modal-header">
+          <div className="search-modal-header-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <div>
+            <div className="search-modal-title">{t('search.placeholder')}</div>
+            <div className="search-modal-subtitle">{t('search.hint')}</div>
+          </div>
+          <kbd className="search-header-kbd">⌘K</kbd>
+        </div>
         {/* Input */}
         <div className="search-input-row">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}>
@@ -159,14 +170,7 @@ export default function SearchModal() {
 
         {/* Results */}
         <div className="search-results">
-          {!query.trim() ? (
-            <div className="search-empty">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0.2 }}>
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <p>{t('search.hint')}</p>
-            </div>
-          ) : results && allResults.length === 0 ? (
+          {!query.trim() ? null : results && allResults.length === 0 ? (
             <div className="search-empty">
               <p>{t('search.noResults', { query })}</p>
             </div>
@@ -334,34 +338,64 @@ export default function SearchModal() {
           border-top: 1px solid var(--border-subtle);
           background: var(--bg-elevated);
         }
-        .search-trigger-btn {
-          display: inline-flex;
+        .search-trigger-icon {
+          display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 6px 14px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          background: none;
+          border: 1px solid var(--border-default);
           border-radius: 8px;
           color: var(--text-secondary);
-          font-size: 13px;
-          font-family: inherit;
           cursor: pointer;
           transition: all var(--transition-fast);
-          white-space: nowrap;
+          flex-shrink: 0;
         }
-        .search-trigger-btn:hover {
+        .search-trigger-icon:hover {
           background: var(--bg-hover);
           color: var(--text-primary);
           border-color: var(--brand-500);
         }
-        .search-trigger-btn kbd {
-          font-size: 10px;
-          padding: 2px 6px;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
-          border-radius: 4px;
-          font-family: inherit;
+        .search-modal-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 18px;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+        .search-modal-header-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--brand-400);
+          flex-shrink: 0;
+        }
+        .search-modal-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .search-modal-subtitle {
+          font-size: 12px;
           color: var(--text-tertiary);
+          margin-top: 1px;
+        }
+        .search-header-kbd {
+          margin-left: auto;
+          font-size: 11px;
+          padding: 2px 8px;
+          background: var(--bg-overlay);
+          border: 1px solid var(--border-default);
+          border-radius: 5px;
+          color: var(--text-disabled);
+          font-family: inherit;
+          flex-shrink: 0;
         }
       `}</style>
     </div>
