@@ -58,11 +58,17 @@ export interface ColorRule {
 
 export interface AutomationTrigger {
   type: 'item_created' | 'item_updated' | 'comment_added' | 'scheduled'
-  conditions?: { fieldId: string; operator: string; value: unknown }[]
+  conditions?: AutomationCondition[]
   scheduleAt?: string
 }
 
+export interface AutomationCondition {
+  fieldId: string
+  operator: string
+  value: unknown
+}
+
 export interface AutomationAction {
-  type: 'send_email' | 'create_item' | 'webhook' | 'notify'
+  type: 'send_email' | 'create_item' | 'create_task' | 'add_comment' | 'update_item' | 'webhook' | 'notify'
   config: Record<string, unknown>
 }

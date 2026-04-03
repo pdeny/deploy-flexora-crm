@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { filterNotifiable } from '@/lib/notifPrefs'
 import { getAppPermissions } from '@/lib/permissions'
-import type { AutomationTrigger, AutomationAction } from '@/lib/types'
+import type { AutomationTrigger, AutomationAction, AppField } from '@/lib/types'
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,56 @@ export async function testWebhook(url: string): Promise<{ ok: boolean; status?: 
   }
 }
 
+// ── Condition evaluation ─────────────────────────────────────────────────────
+
+function evaluateCondition(
+  condition: { fieldId: string; operator: string; value: unknown },
+  itemTitle: string,
+  itemData: Record<string, unknown>,
+  fields: AppField[],
+): boolean {
+  const raw = condition.fieldId === '__title__'
+    ? itemTitle
+    : itemData[condition.fieldId]
+
+  const isEmpty = raw === null || raw === undefined || raw === ''
+
+  if (condition.operator === 'is_empty') return isEmpty
+  if (condition.operator === 'is_not_empty') return !isEmpty
+  if (isEmpty) return false
+
+  const field = fields.find(f => f.id === condition.fieldId)
+  if (field?.type === 'multiselect' && Array.isArray(raw)) {
+    const ruleVal = String(condition.value ?? '')
+    if (condition.operator === 'contains') return raw.includes(ruleVal)
+    if (condition.operator === 'not_contains') return !raw.includes(ruleVal)
+    if (condition.operator === 'equals') return raw.length === 1 && raw[0] === ruleVal
+    if (condition.operator === 'not_equals') return !raw.includes(ruleVal)
+    return true
+  }
+
+  const strValue = String(raw).toLowerCase()
+  const ruleStr = String(condition.value ?? '').toLowerCase()
+
+  switch (condition.operator) {
+    case 'contains': return strValue.includes(ruleStr)
+    case 'not_contains': return !strValue.includes(ruleStr)
+    case 'equals': return strValue === ruleStr
+    case 'not_equals': return strValue !== ruleStr
+    case 'gt': return Number(raw) > Number(condition.value)
+    case 'gte': return Number(raw) >= Number(condition.value)
+    case 'lt': return Number(raw) < Number(condition.value)
+    case 'lte': return Number(raw) <= Number(condition.value)
+    case 'before':
+      try { return new Date(raw as string) < new Date(condition.value as string) }
+      catch { return false }
+    case 'after':
+      try { return new Date(raw as string) > new Date(condition.value as string) }
+      catch { return false }
+    default: return true
+  }
+}
+
 // ── Execution engine ──────────────────────────────────────────────────────────
 
 type TriggerType = AutomationTrigger['type']
@@ -101,11 +151,21 @@ export async function executeAutomations(
   appId: string,
   triggerType: TriggerType,
   context: { itemId?: string; itemTitle?: string; userId?: string; workspaceId?: string },
+  _depth = 0,
 ) {
-  // Fetch active automations matching this trigger
+  // Prevent infinite recursion from actions that trigger other automations
+  if (_depth > 0) return
+
   const automations = await prisma.automation.findMany({
     where: { appId, isActive: true },
   })
+
+  // Fetch app fields for condition evaluation
+  const app = await prisma.app.findUnique({
+    where: { id: appId },
+    select: { fieldsJson: true },
+  })
+  const fields: AppField[] = app ? JSON.parse(app.fieldsJson) : []
 
   for (const automation of automations) {
     let trigger: AutomationTrigger
@@ -116,6 +176,23 @@ export async function executeAutomations(
     } catch { continue }
 
     if (trigger.type !== triggerType) continue
+
+    // Evaluate conditions if present
+    if (trigger.conditions && trigger.conditions.length > 0 && context.itemId) {
+      const item = await prisma.item.findUnique({
+        where: { id: context.itemId },
+        select: { title: true, dataJson: true },
+      })
+      if (!item) continue
+
+      let itemData: Record<string, unknown> = {}
+      try { itemData = JSON.parse(item.dataJson) } catch { /* ignore */ }
+
+      const allMatch = trigger.conditions.every(c =>
+        evaluateCondition(c, item.title, itemData, fields)
+      )
+      if (!allMatch) continue
+    }
 
     // Execute each action
     for (const action of actions) {
@@ -133,7 +210,6 @@ async function runAction(
     const cfg = action.config as { message?: string; notifyAll?: boolean }
     const message = cfg.message ?? 'An automation was triggered'
 
-    // Determine recipients
     const app = await prisma.app.findUnique({
       where: { id: appId },
       include: { workspace: { include: { members: true } } },
@@ -176,5 +252,69 @@ async function runAction(
         signal: AbortSignal.timeout(5000),
       })
     } catch { /* webhook failures are silent */ }
+  }
+
+  if (action.type === 'create_task') {
+    const cfg = action.config as { title?: string; priority?: string }
+    if (!cfg.title || !context.itemId || !context.userId) return
+    await prisma.task.create({
+      data: {
+        itemId: context.itemId,
+        title: cfg.title,
+        priority: cfg.priority || 'medium',
+        creatorId: context.userId,
+        status: 'todo',
+      },
+    })
+  }
+
+  if (action.type === 'add_comment') {
+    const cfg = action.config as { content?: string }
+    if (!cfg.content || !context.itemId || !context.userId) return
+    await prisma.comment.create({
+      data: {
+        itemId: context.itemId,
+        authorId: context.userId,
+        content: cfg.content,
+      },
+    })
+    // Note: not re-triggering comment_added to prevent loops
+  }
+
+  if (action.type === 'create_item') {
+    const cfg = action.config as { targetAppId?: string; title?: string; data?: Record<string, unknown> }
+    if (!cfg.title || !context.userId) return
+    await prisma.item.create({
+      data: {
+        appId: cfg.targetAppId || appId,
+        title: cfg.title,
+        dataJson: JSON.stringify(cfg.data || {}),
+        creatorId: context.userId,
+      },
+    })
+    // Note: not re-triggering item_created to prevent loops
+  }
+
+  if (action.type === 'update_item') {
+    const cfg = action.config as { updates?: { fieldId: string; value: unknown }[] }
+    if (!cfg.updates?.length || !context.itemId) return
+    const item = await prisma.item.findUnique({
+      where: { id: context.itemId },
+      select: { dataJson: true },
+    })
+    if (!item) return
+
+    let data: Record<string, unknown> = {}
+    try { data = JSON.parse(item.dataJson) } catch { /* ignore */ }
+
+    for (const upd of cfg.updates) {
+      data[upd.fieldId] = upd.value
+    }
+
+    await prisma.item.update({
+      where: { id: context.itemId },
+      data: { dataJson: JSON.stringify(data) },
+    })
+    // Note: not re-triggering item_updated to prevent loops
   }
 }

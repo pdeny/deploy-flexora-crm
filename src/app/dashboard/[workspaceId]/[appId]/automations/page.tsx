@@ -15,13 +15,20 @@ export default async function AutomationsPage({
 
   const { workspaceId, appId } = await params
 
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: {
-      workspace: { include: { members: true } },
-      automations: { orderBy: { createdAt: 'desc' } },
-    },
-  })
+  const [app, workspaceApps] = await Promise.all([
+    prisma.app.findUnique({
+      where: { id: appId },
+      include: {
+        workspace: { include: { members: true } },
+        automations: { orderBy: { createdAt: 'desc' } },
+      },
+    }),
+    prisma.app.findMany({
+      where: { workspaceId },
+      select: { id: true, name: true, iconEmoji: true, fieldsJson: true },
+    }),
+  ])
+
   if (!app || app.workspaceId !== workspaceId) notFound()
 
   const isMember = app.workspace.members.some(m => m.userId === user.id)
@@ -45,6 +52,12 @@ export default async function AutomationsPage({
           workspaceId={workspaceId}
           automations={app.automations}
           fields={fields}
+          workspaceApps={workspaceApps.map(a => ({
+            id: a.id,
+            name: a.name,
+            iconEmoji: a.iconEmoji,
+            fields: JSON.parse(a.fieldsJson) as AppField[],
+          }))}
         />
       </div>
     </div>
