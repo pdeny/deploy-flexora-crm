@@ -167,7 +167,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding: 32px 40px;
-  background: #251e3a;
+  background: #000;
 }
 [data-theme="light"] .page-body {
   background: transparent;
