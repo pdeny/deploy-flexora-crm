@@ -15,6 +15,15 @@ export async function getSession() {
     return null
   }
 
+  // Update lastActiveAt if stale (>1 min) — fire-and-forget to avoid blocking
+  const ONE_MINUTE = 60_000
+  if (Date.now() - session.lastActiveAt.getTime() > ONE_MINUTE) {
+    prisma.session.update({
+      where: { id: session.id },
+      data: { lastActiveAt: new Date() },
+    }).catch(() => {})
+  }
+
   return session
 }
 

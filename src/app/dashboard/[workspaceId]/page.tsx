@@ -45,6 +45,7 @@ export default async function WorkspacePage({
       where: {
         userId: { in: memberUserIds },
         expiresAt: { gt: new Date() },
+        lastActiveAt: { gt: new Date(Date.now() - 5 * 60 * 1000) }, // active in last 5 min
       },
       select: { userId: true },
       distinct: ['userId'],
