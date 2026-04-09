@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import * as XLSX from 'xlsx'
 import CreateAppButton from '@/components/CreateAppButton'
 import { duplicateApp, importAppFromCSV } from '@/lib/actions/workspace'
 import { formatRelative } from '@/lib/utils'
@@ -77,6 +78,7 @@ export default function WorkspaceContent({
   const [csvDragOver, setCsvDragOver] = useState(false)
   const [csvSeparator, setCsvSeparator] = useState<',' | ';' | '.'>(',')
   const [csvRawText, setCsvRawText] = useState('')
+  const [isExcelFile, setIsExcelFile] = useState(false)
   const csvFileRef = useRef<HTMLInputElement>(null)
 
   const FIELD_TYPE_LABELS: Record<FieldType, string> = {
@@ -140,20 +142,47 @@ export default function WorkspaceContent({
     setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
   }
 
+  function parseExcelFile(buffer: ArrayBuffer): { headers: string[]; rows: string[][] } {
+    const wb = XLSX.read(buffer, { type: 'array' })
+    const sheet = wb.Sheets[wb.SheetNames[0]]
+    const raw: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+    if (raw.length === 0) return { headers: [], rows: [] }
+    const headers = raw[0].map(String)
+    const rows = raw.slice(1).filter(r => r.some(c => String(c).trim())).map(r => r.map(String))
+    return { headers, rows }
+  }
+
   const handleCSVFile = useCallback((file: File) => {
-    const reader = new FileReader()
-    reader.onload = e => {
-      const text = e.target?.result as string
-      setCsvRawText(text)
-      const detectedSep = detectSeparator(text)
-      setCsvSeparator(detectedSep)
-      const parsed = parseCSV(text, detectedSep)
-      setCsvParsed(parsed)
-      const titleIdx = parsed.headers.findIndex(h => /^(title|name|nome|titolo)$/i.test(h.trim()))
-      setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
-      setCsvAppName(file.name.replace(/\.csv$/i, '').replace(/[-_]/g, ' '))
+    const isExcel = /\.(xlsx?|xls)$/i.test(file.name)
+    setIsExcelFile(isExcel)
+
+    if (isExcel) {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const buffer = e.target?.result as ArrayBuffer
+        const parsed = parseExcelFile(buffer)
+        setCsvRawText('')
+        setCsvParsed(parsed)
+        const titleIdx = parsed.headers.findIndex(h => /^(title|name|nome|titolo)$/i.test(h.trim()))
+        setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
+        setCsvAppName(file.name.replace(/\.(xlsx?|xls)$/i, '').replace(/[-_]/g, ' '))
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const text = e.target?.result as string
+        setCsvRawText(text)
+        const detectedSep = detectSeparator(text)
+        setCsvSeparator(detectedSep)
+        const parsed = parseCSV(text, detectedSep)
+        setCsvParsed(parsed)
+        const titleIdx = parsed.headers.findIndex(h => /^(title|name|nome|titolo)$/i.test(h.trim()))
+        setCsvTitleCol(titleIdx >= 0 ? titleIdx : 0)
+        setCsvAppName(file.name.replace(/\.csv$/i, '').replace(/[-_]/g, ' '))
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
   }, [])
 
   async function handleCSVImport() {
@@ -212,7 +241,7 @@ export default function WorkspaceContent({
           {can['app:create'] && <>
             <button
               className={`btn ${showCSVImport ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => { setShowCSVImport(o => !o); if (showCSVImport) { setCsvParsed(null); setCsvAppName('') } }}
+              onClick={() => { setShowCSVImport(o => !o); if (showCSVImport) { setCsvParsed(null); setCsvAppName(''); setIsExcelFile(false) } }}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -254,7 +283,7 @@ export default function WorkspaceContent({
               onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
               onClick={() => csvFileRef.current?.click()}
             >
-              <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
+              <input ref={csvFileRef} type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
@@ -268,7 +297,7 @@ export default function WorkspaceContent({
                   <label className="form-label">{t('ws.importCSVAppName')}</label>
                   <input className="form-input" value={csvAppName} onChange={e => setCsvAppName(e.target.value)} />
                 </div>
-                <div style={{ flex: 1, minWidth: 120 }}>
+                {!isExcelFile && <div style={{ flex: 1, minWidth: 120 }}>
                   <label className="form-label">{t('ws.importCSVSeparator')}</label>
                   <div className="csv-sep-group">
                     {([',', ';', '.'] as const).map(sep => (
@@ -281,7 +310,7 @@ export default function WorkspaceContent({
                       </button>
                     ))}
                   </div>
-                </div>
+                </div>}
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <label className="form-label">{t('ws.importCSVTitleCol')}</label>
                   <select className="form-input" value={csvTitleCol} onChange={e => setCsvTitleCol(Number(e.target.value))}>

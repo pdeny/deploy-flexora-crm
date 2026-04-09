@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import * as XLSX from 'xlsx'
 import { updateAppFields, createItem, updateApp, deleteApp, duplicateApp, searchItemsForRelation, addRelation, upsertItemsFromCSV } from '@/lib/actions/workspace'
 import { useT } from '@/contexts/LanguageContext'
 import type { LangKey } from '@/lib/i18n/it'
@@ -165,6 +166,7 @@ export default function AppHeader({
   const [csvSeparator, setCsvSeparator] = useState<',' | ';' | '.'>(',')
   const [csvMode, setCsvMode] = useState<'create' | 'update' | 'upsert'>('upsert')
   const [csvDragOver, setCsvDragOver] = useState(false)
+  const [isExcelFile, setIsExcelFile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Saved views (localStorage)
@@ -409,19 +411,44 @@ export default function AppHeader({
     setCsvMapping(autoMapHeaders(parsed))
   }
 
+  function parseExcelFile(buffer: ArrayBuffer): { headers: string[]; rows: string[][] } {
+    const wb = XLSX.read(buffer, { type: 'array' })
+    const sheet = wb.Sheets[wb.SheetNames[0]]
+    const raw: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+    if (raw.length === 0) return { headers: [], rows: [] }
+    const headers = raw[0].map(String)
+    const rows = raw.slice(1).filter(r => r.some(c => String(c).trim())).map(r => r.map(String))
+    return { headers, rows }
+  }
+
   function handleCSVFile(file: File) {
-    const reader = new FileReader()
-    reader.onload = e => {
-      const text = e.target?.result as string
-      setCsvRawText(text)
-      const detectedSep = detectSeparator(text)
-      setCsvSeparator(detectedSep)
-      const parsed = parseCSV(text, detectedSep)
-      setCsvPreview(parsed)
-      setCsvMapping(autoMapHeaders(parsed))
-      setCsvImportResult(null)
+    const isExcel = /\.(xlsx?|xls)$/i.test(file.name)
+    setIsExcelFile(isExcel)
+    setCsvImportResult(null)
+
+    if (isExcel) {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const buffer = e.target?.result as ArrayBuffer
+        const parsed = parseExcelFile(buffer)
+        setCsvRawText('')
+        setCsvPreview(parsed)
+        setCsvMapping(autoMapHeaders(parsed))
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const text = e.target?.result as string
+        setCsvRawText(text)
+        const detectedSep = detectSeparator(text)
+        setCsvSeparator(detectedSep)
+        const parsed = parseCSV(text, detectedSep)
+        setCsvPreview(parsed)
+        setCsvMapping(autoMapHeaders(parsed))
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
   }
 
   async function handleCSVImport() {
@@ -469,7 +496,7 @@ export default function AppHeader({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
               </svg>
-              {t('header.savedViews')}{savedViews.length > 0 && ` (${savedViews.length})`}
+              <span className="header-btn-label">{t('header.savedViews')}{savedViews.length > 0 && ` (${savedViews.length})`}</span>
             </button>
             {showViews && (
               <div className="app-more-menu" style={{ minWidth: 220, left: 0, right: 'auto' }}>
@@ -530,7 +557,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            {filterRules.length > 0 ? t('header.filters', { n: filterRules.length }) : t('header.filter')}
+            <span className="header-btn-label">{filterRules.length > 0 ? t('header.filters', { n: filterRules.length }) : t('header.filter')}</span>
             {filterRules.length > 0 && (
               <span style={{
                 position: 'absolute', top: -6, right: -6,
@@ -545,7 +572,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M12 2v2M12 20v2M2 12h2M20 12h2"/>
             </svg>
-            {t('header.fields')}
+            <span className="header-btn-label">{t('header.fields')}</span>
           </button>}
           {can['app:manageShare'] && <button
             className="btn btn-secondary btn-sm btn-icon"
@@ -565,7 +592,7 @@ export default function AppHeader({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            {t('header.addItem')}
+            <span className="header-btn-label">{t('header.addItem')}</span>
           </button>}
 
           {/* More menu */}
@@ -1334,7 +1361,7 @@ export default function AppHeader({
               onDrop={e => { e.preventDefault(); setCsvDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleCSVFile(f) }}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input ref={fileInputRef} type="file" accept=".csv,text/csv" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
+              <input ref={fileInputRef} type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleCSVFile(f) }} />
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-disabled)" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
@@ -1359,7 +1386,7 @@ export default function AppHeader({
                     ))}
                   </div>
                 </div>
-                <div style={{ flex: 0, minWidth: 120 }}>
+                {!isExcelFile && <div style={{ flex: 0, minWidth: 120 }}>
                   <label className="form-label">{t('header.csvSeparator')}</label>
                   <div className="csv-mode-group">
                     {([',', ';', '.'] as const).map(sep => (
@@ -1372,7 +1399,7 @@ export default function AppHeader({
                       </button>
                     ))}
                   </div>
-                </div>
+                </div>}
               </div>
 
               {/* Column mapping */}
@@ -1511,6 +1538,12 @@ export default function AppHeader({
             padding-bottom: 2px;
           }
           .app-header-bar > div:last-child::-webkit-scrollbar {
+            display: none;
+          }
+          .app-header-bar > div:last-child .btn {
+            flex-shrink: 0;
+          }
+          .header-btn-label {
             display: none;
           }
           .app-header-bar h1 {
