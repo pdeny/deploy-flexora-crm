@@ -522,6 +522,7 @@ export const en: LangDict = {
   'ws.noActivity': 'No activity yet.',
   'ws.members': 'Members ({n})',
   'ws.online': 'Online',
+  'ws.idle': 'Away',
   'ws.activeNow': 'active now',
   'ws.invite': 'Invite',
 

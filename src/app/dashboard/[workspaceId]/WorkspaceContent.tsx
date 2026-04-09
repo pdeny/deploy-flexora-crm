@@ -47,6 +47,7 @@ type Props = {
   apps: AppSummary[]
   members: Member[]
   onlineUserIds: string[]
+  memberActivity: Record<string, string>
   recentItems: RecentItem[]
   doneTasks: number
   totalTasks: number
@@ -62,6 +63,7 @@ export default function WorkspaceContent({
   apps,
   members,
   onlineUserIds,
+  memberActivity,
   recentItems,
   doneTasks,
   totalTasks,
@@ -262,21 +264,26 @@ export default function WorkspaceContent({
       <div className="ws-active-members">
         <div className="ws-active-avatars">
           {members.slice(0, 8).map((m, i) => {
-            const isOnline = onlineUserIds.includes(m.userId)
+            const lastActive = memberActivity[m.userId]
+            const ago = lastActive ? Date.now() - new Date(lastActive).getTime() : Infinity
+            const FIVE_MIN = 5 * 60 * 1000
+            const ONE_HOUR = 60 * 60 * 1000
+            const status: 'online' | 'idle' | 'offline' = ago < FIVE_MIN ? 'online' : ago < ONE_HOUR ? 'idle' : 'offline'
+            const statusLabel = status === 'online' ? t('ws.online') : status === 'idle' ? t('ws.idle') : ''
             const initial = (m.userName || m.userEmail)[0].toUpperCase()
             return (
               <div
                 key={m.id}
                 className="ws-avatar-stack-item"
                 style={{ zIndex: members.length - i }}
-                title={`${m.userName || m.userEmail}${isOnline ? ` — ${t('ws.online')}` : ''}`}
+                title={`${m.userName || m.userEmail}${statusLabel ? ` — ${statusLabel}` : ''}`}
               >
                 {m.avatarUrl ? (
                   <img src={m.avatarUrl} alt={m.userName || m.userEmail} className="ws-avatar-img" />
                 ) : (
                   <div className="ws-avatar-fallback">{initial}</div>
                 )}
-                <span className={`ws-avatar-status ${isOnline ? 'ws-avatar-online' : 'ws-avatar-offline'}`} />
+                <span className={`ws-avatar-status ws-avatar-${status}`} />
               </div>
             )
           })}
@@ -664,6 +671,9 @@ export default function WorkspaceContent({
         }
         .ws-avatar-online {
           background: #22c55e;
+        }
+        .ws-avatar-idle {
+          background: #f59e0b;
         }
         .ws-avatar-offline {
           background: var(--text-disabled);

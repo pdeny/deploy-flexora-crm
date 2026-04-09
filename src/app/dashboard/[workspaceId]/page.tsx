@@ -45,14 +45,23 @@ export default async function WorkspacePage({
       where: {
         userId: { in: memberUserIds },
         expiresAt: { gt: new Date() },
-        lastActiveAt: { gt: new Date(Date.now() - 5 * 60 * 1000) }, // active in last 5 min
       },
-      select: { userId: true },
+      select: { userId: true, lastActiveAt: true },
+      orderBy: { lastActiveAt: 'desc' },
       distinct: ['userId'],
     }),
   ])
 
-  const onlineUserIds = activeSessions.map(s => s.userId)
+  // Build a map of userId → lastActiveAt (most recent session)
+  const memberActivity: Record<string, string> = {}
+  for (const s of activeSessions) {
+    memberActivity[s.userId] = s.lastActiveAt.toISOString()
+  }
+  // Keep onlineUserIds for backward compat (active in last 5 min)
+  const FIVE_MIN = 5 * 60 * 1000
+  const onlineUserIds = activeSessions
+    .filter(s => Date.now() - s.lastActiveAt.getTime() < FIVE_MIN)
+    .map(s => s.userId)
 
   const totalTasks = taskStats.reduce((s, t) => s + t._count, 0)
   const doneTasks = taskStats.find(t => t.status === 'done')?._count ?? 0
@@ -81,6 +90,7 @@ export default async function WorkspacePage({
         avatarUrl: m.user.avatarUrl,
       }))}
       onlineUserIds={onlineUserIds}
+      memberActivity={memberActivity}
       recentItems={recentItems.map(item => ({
         id: item.id,
         title: item.title,

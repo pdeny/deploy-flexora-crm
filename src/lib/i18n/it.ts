@@ -520,6 +520,7 @@ export const it = {
   'ws.noActivity': 'Nessuna attività.',
   'ws.members': 'Membri ({n})',
   'ws.online': 'Online',
+  'ws.idle': 'Inattivo',
   'ws.activeNow': 'attivi ora',
   'ws.invite': 'Invita',
 
