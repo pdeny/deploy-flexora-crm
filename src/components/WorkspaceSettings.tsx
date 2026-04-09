@@ -36,6 +36,7 @@ type Props = {
   currentUserRole: string
   currentUserNotificationsEnabled: boolean
   pendingInvites?: PendingInvite[]
+  initialTab?: 'general' | 'members' | 'danger'
   can?: PermissionMap
 }
 
@@ -44,8 +45,8 @@ const COLOR_OPTIONS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b98
 
 type Tab = 'general' | 'members' | 'danger'
 
-export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserNotificationsEnabled, pendingInvites = [], can = {} }: Props) {
-  const [tab, setTab] = useState<Tab>('general')
+export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserNotificationsEnabled, pendingInvites = [], initialTab = 'general', can = {} }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   // Notification preference
   const [notifEnabled, setNotifEnabled] = useState(currentUserNotificationsEnabled)

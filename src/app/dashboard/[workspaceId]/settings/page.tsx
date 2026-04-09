@@ -8,13 +8,17 @@ import SettingsPageHeader from './SettingsPageHeader'
 
 export default async function SettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   let user
   try { user = await requireUser() } catch { redirect('/login') }
 
   const { workspaceId } = await params
+  const { tab } = await searchParams
+  const initialTab = (tab === 'members' || tab === 'danger') ? tab : 'general'
 
   const [workspace, pendingInvites] = await Promise.all([
     prisma.workspace.findUnique({
@@ -65,6 +69,7 @@ export default async function SettingsPage({
         currentUserId={user.id}
         currentUserRole={currentMember.role}
         currentUserNotificationsEnabled={currentMember.notificationsEnabled}
+        initialTab={initialTab}
         pendingInvites={pendingInvites.map(i => ({
           id: i.id,
           email: i.email,
