@@ -16,13 +16,20 @@ export default async function SettingsPage({
 
   const { workspaceId } = await params
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    include: {
-      members: { include: { user: true }, orderBy: { joinedAt: 'asc' } },
-      apiKeys: { orderBy: { createdAt: 'desc' }, select: { id: true, name: true, prefix: true, lastUsedAt: true, createdAt: true } },
-    },
-  })
+  const [workspace, pendingInvites] = await Promise.all([
+    prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        members: { include: { user: true }, orderBy: { joinedAt: 'asc' } },
+        apiKeys: { orderBy: { createdAt: 'desc' }, select: { id: true, name: true, prefix: true, lastUsedAt: true, createdAt: true } },
+      },
+    }),
+    prisma.workspaceInvite.findMany({
+      where: { workspaceId, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      include: { invitedBy: { select: { name: true, email: true } } },
+    }),
+  ])
   if (!workspace) notFound()
 
   const currentMember = workspace.members.find(m => m.userId === user.id)
@@ -58,6 +65,14 @@ export default async function SettingsPage({
         currentUserId={user.id}
         currentUserRole={currentMember.role}
         currentUserNotificationsEnabled={currentMember.notificationsEnabled}
+        pendingInvites={pendingInvites.map(i => ({
+          id: i.id,
+          email: i.email,
+          token: i.token,
+          role: i.role,
+          expiresAt: i.expiresAt,
+          invitedByName: i.invitedBy.name ?? i.invitedBy.email,
+        }))}
         can={can}
       />
 

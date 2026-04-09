@@ -40,6 +40,7 @@ export async function register(formData: FormData) {
   const name = formData.get('name') as string
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const inviteToken = formData.get('inviteToken') as string | null
 
   if (!name || !email || !password) {
     return { error: 'All fields are required' }
@@ -71,6 +72,29 @@ export async function register(formData: FormData) {
     },
   })
 
+  // If there's an invite token, accept it
+  let inviteWorkspaceId: string | null = null
+  if (inviteToken) {
+    const invite = await prisma.workspaceInvite.findUnique({ where: { token: inviteToken } })
+    if (invite && invite.expiresAt > new Date()) {
+      // Verify email match if invite is email-bound
+      if (!invite.email || invite.email === email.toLowerCase()) {
+        const alreadyMember = await prisma.workspaceMember.findUnique({
+          where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: user.id } },
+        })
+        if (!alreadyMember) {
+          await prisma.workspaceMember.create({
+            data: { workspaceId: invite.workspaceId, userId: user.id, role: invite.role },
+          })
+          inviteWorkspaceId = invite.workspaceId
+        }
+        if (invite.email) {
+          await prisma.workspaceInvite.delete({ where: { id: invite.id } })
+        }
+      }
+    }
+  }
+
   const token = uuidv4()
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
   await prisma.session.create({ data: { userId: user.id, token, expiresAt } })
@@ -83,7 +107,7 @@ export async function register(formData: FormData) {
     expires: expiresAt,
   })
 
-  redirect('/dashboard')
+  redirect(inviteWorkspaceId ? `/dashboard/${inviteWorkspaceId}` : '/dashboard')
 }
 
 export async function logout() {

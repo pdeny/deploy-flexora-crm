@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace, setWorkspaceNotifications } from '@/lib/actions/settings'
+import { updateWorkspace, inviteMember, removeMember, updateMemberRole, deleteWorkspace, setWorkspaceNotifications, createInviteLink, cancelInvite } from '@/lib/actions/settings'
 import { useT } from '@/contexts/LanguageContext'
 import { Avatar } from '@/components/Avatar'
 import type { PermissionMap } from '@/lib/permissions'
@@ -20,12 +20,22 @@ type WorkspaceSnap = {
   color: string
 }
 
+type PendingInvite = {
+  id: string
+  email: string | null
+  token: string
+  role: string
+  expiresAt: Date
+  invitedByName: string
+}
+
 type Props = {
   workspace: WorkspaceSnap
   members: MemberRow[]
   currentUserId: string
   currentUserRole: string
   currentUserNotificationsEnabled: boolean
+  pendingInvites?: PendingInvite[]
   can?: PermissionMap
 }
 
@@ -34,7 +44,7 @@ const COLOR_OPTIONS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b98
 
 type Tab = 'general' | 'members' | 'danger'
 
-export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserNotificationsEnabled, can = {} }: Props) {
+export default function WorkspaceSettings({ workspace, members, currentUserId, currentUserNotificationsEnabled, pendingInvites = [], can = {} }: Props) {
   const [tab, setTab] = useState<Tab>('general')
 
   // Notification preference
@@ -60,8 +70,12 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
   // Members tab state
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteError, setInviteError] = useState('')
-  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState<false | 'direct' | 'invite'>(false)
+  const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null)
   const [isInviting, startInvite] = useTransition()
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [isCreatingLink, startCreateLink] = useTransition()
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
   const [memberAction, startMemberAction] = useTransition()
 
   // Danger zone
@@ -89,12 +103,40 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
     e.preventDefault()
     setInviteError('')
     setInviteSuccess(false)
+    setInviteLinkToken(null)
     if (!inviteEmail.trim()) return
     startInvite(async () => {
       const result = await inviteMember(workspace.id, inviteEmail)
-      if (result?.error) setInviteError(result.error)
-      else { setInviteSuccess(true); setInviteEmail('') }
+      if (result?.error) { setInviteError(result.error); return }
+      if ('mode' in result && result.mode === 'invite' && 'token' in result) {
+        setInviteSuccess('invite')
+        setInviteLinkToken(result.token)
+      } else {
+        setInviteSuccess('direct')
+      }
+      setInviteEmail('')
     })
+  }
+
+  function handleCreateLink() {
+    startCreateLink(async () => {
+      const result = await createInviteLink(workspace.id)
+      if ('error' in result) { setInviteError(result.error ?? 'Unknown error'); return }
+      const url = `${window.location.origin}/invite/${result.token}`
+      setGeneratedLink(url)
+    })
+  }
+
+  function handleCancelInvite(inviteId: string) {
+    startMemberAction(async () => {
+      await cancelInvite(inviteId)
+    })
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   function handleRemove(userId: string) {
@@ -250,6 +292,9 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
           {canManageMembers && (
             <div className="settings-section">
               <h2 className="settings-section-title">{t('wsSettings.inviteMember')}</h2>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: -8, lineHeight: 1.5 }}>
+                {t('wsSettings.inviteDesc')}
+              </p>
               <form onSubmit={handleInvite} style={{ display: 'flex', gap: 10 }}>
                 <input
                   className="form-input"
@@ -264,7 +309,101 @@ export default function WorkspaceSettings({ workspace, members, currentUserId, c
                 </button>
               </form>
               {inviteError && <p className="form-error" style={{ marginTop: 8 }}>{inviteError}</p>}
-              {inviteSuccess && <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 8 }}>{t('wsSettings.memberAdded')}</p>}
+              {inviteSuccess === 'direct' && <p style={{ fontSize: 12, color: 'var(--success)', marginTop: 8 }}>{t('wsSettings.memberAdded')}</p>}
+              {inviteSuccess === 'invite' && inviteLinkToken && (
+                <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+                  <p style={{ fontSize: 12, color: 'var(--success)', marginBottom: 8 }}>{t('wsSettings.inviteSent')}</p>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="form-input"
+                      readOnly
+                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${inviteLinkToken}`}
+                      style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                    />
+                    <button className="btn btn-secondary btn-sm" onClick={() => copyToClipboard(`${window.location.origin}/invite/${inviteLinkToken}`)}>
+                      {linkCopied ? t('wsSettings.copied') : t('wsSettings.copyLink')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate generic invite link */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 6 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+                <span style={{ fontSize: 11, color: 'var(--text-disabled)', fontWeight: 600 }}>{t('wsSettings.orInviteLink')}</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+              </div>
+              {generatedLink ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    className="form-input"
+                    readOnly
+                    value={generatedLink}
+                    style={{ flex: 1, fontSize: 12, fontFamily: 'monospace' }}
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                  <button className="btn btn-secondary btn-sm" onClick={() => copyToClipboard(generatedLink)}>
+                    {linkCopied ? t('wsSettings.copied') : t('wsSettings.copyLink')}
+                  </button>
+                </div>
+              ) : (
+                <button className="btn btn-secondary" onClick={handleCreateLink} disabled={isCreatingLink} style={{ width: '100%', justifyContent: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                  {isCreatingLink ? t('wsSettings.generating') : t('wsSettings.generateLink')}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Pending invites */}
+          {canManageMembers && pendingInvites.length > 0 && (
+            <div className="settings-section">
+              <h2 className="settings-section-title">{t('wsSettings.pendingInvites', { n: pendingInvites.length })}</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {pendingInvites.map(inv => (
+                  <div key={inv.id} className="member-row">
+                    <div style={{
+                      width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                      background: 'var(--bg-overlay)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 16,
+                    }}>
+                      {inv.email ? '✉️' : '🔗'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {inv.email ?? t('wsSettings.genericLink')}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        {t('wsSettings.invitedBy', { name: inv.invitedByName })} · {t('wsSettings.expires', { date: new Date(inv.expiresAt).toLocaleDateString() })}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => copyToClipboard(`${window.location.origin}/invite/${inv.token}`)}
+                      title={t('wsSettings.copyLink')}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm btn-icon"
+                      onClick={() => handleCancelInvite(inv.id)}
+                      title={t('wsSettings.cancelInvite')}
+                      style={{ color: 'var(--error)', opacity: 0.7 }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

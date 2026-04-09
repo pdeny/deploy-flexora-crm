@@ -38,30 +38,124 @@ export async function inviteMember(workspaceId: string, email: string) {
   const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
   if (!perms?.can('workspace:inviteMembers')) return { error: 'Unauthorized' }
 
-  const invitee = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } })
-  if (!invitee) return { error: 'No user found with that email address' }
+  const trimmedEmail = email.trim().toLowerCase()
 
-  const existing = await prisma.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: invitee.id } },
+  // If user already exists, add them directly
+  const invitee = await prisma.user.findUnique({ where: { email: trimmedEmail } })
+  if (invitee) {
+    const existing = await prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId: invitee.id } },
+    })
+    if (existing) return { error: 'User is already a member of this workspace' }
+
+    await prisma.workspaceMember.create({
+      data: { workspaceId, userId: invitee.id, role: 'member' },
+    })
+
+    await prisma.notification.create({
+      data: {
+        userId: invitee.id,
+        title: 'You were added to a workspace',
+        body: `You now have access to the workspace.`,
+        link: `/dashboard/${workspaceId}`,
+      },
+    })
+
+    revalidatePath(`/dashboard/${workspaceId}/settings`)
+    return { success: true, mode: 'direct' as const }
+  }
+
+  // User doesn't exist — create an invite link
+  const existingInvite = await prisma.workspaceInvite.findFirst({
+    where: { workspaceId, email: trimmedEmail, expiresAt: { gt: new Date() } },
   })
-  if (existing) return { error: 'User is already a member of this workspace' }
+  if (existingInvite) return { error: 'An invite for this email is already pending' }
 
-  await prisma.workspaceMember.create({
-    data: { workspaceId, userId: invitee.id, role: 'member' },
-  })
-
-  // Notify the invited user
-  await prisma.notification.create({
+  const token = randomBytes(16).toString('base64url')
+  await prisma.workspaceInvite.create({
     data: {
-      userId: invitee.id,
-      title: 'You were added to a workspace',
-      body: `You now have access to the workspace.`,
-      link: `/dashboard/${workspaceId}`,
+      workspaceId,
+      email: trimmedEmail,
+      token,
+      role: 'member',
+      invitedById: user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     },
   })
 
   revalidatePath(`/dashboard/${workspaceId}/settings`)
+  return { success: true, mode: 'invite' as const, token }
+}
+
+export async function createInviteLink(workspaceId: string) {
+  const user = await requireUser()
+  const perms = await getWorkspacePermissions(user.id, workspaceId).catch(() => null)
+  if (!perms?.can('workspace:inviteMembers')) return { error: 'Unauthorized' }
+
+  const token = randomBytes(16).toString('base64url')
+  await prisma.workspaceInvite.create({
+    data: {
+      workspaceId,
+      token,
+      role: 'member',
+      invitedById: user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  })
+
+  revalidatePath(`/dashboard/${workspaceId}/settings`)
+  return { token }
+}
+
+export async function cancelInvite(inviteId: string) {
+  const user = await requireUser()
+  const invite = await prisma.workspaceInvite.findUnique({ where: { id: inviteId } })
+  if (!invite) return { error: 'Invite not found' }
+
+  const perms = await getWorkspacePermissions(user.id, invite.workspaceId).catch(() => null)
+  if (!perms?.can('workspace:inviteMembers')) return { error: 'Unauthorized' }
+
+  await prisma.workspaceInvite.delete({ where: { id: inviteId } })
+  revalidatePath(`/dashboard/${invite.workspaceId}/settings`)
   return { success: true }
+}
+
+export async function acceptInvite(token: string) {
+  const user = await requireUser()
+
+  const invite = await prisma.workspaceInvite.findUnique({
+    where: { token },
+    include: { workspace: true },
+  })
+  if (!invite) return { error: 'Invite not found or expired' }
+  if (invite.expiresAt < new Date()) {
+    await prisma.workspaceInvite.delete({ where: { id: invite.id } })
+    return { error: 'This invite has expired' }
+  }
+
+  // If email-bound, verify it matches
+  if (invite.email && invite.email !== user.email) {
+    return { error: 'This invite is for a different email address' }
+  }
+
+  const existing = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: user.id } },
+  })
+  if (existing) {
+    await prisma.workspaceInvite.delete({ where: { id: invite.id } })
+    return { workspaceId: invite.workspaceId, alreadyMember: true }
+  }
+
+  await prisma.workspaceMember.create({
+    data: { workspaceId: invite.workspaceId, userId: user.id, role: invite.role },
+  })
+
+  // Delete invite (or just this one if email-bound; delete all matching generic invites would leave them for others)
+  if (invite.email) {
+    await prisma.workspaceInvite.delete({ where: { id: invite.id } })
+  }
+
+  return { workspaceId: invite.workspaceId, workspaceName: invite.workspace.name }
 }
 
 export async function removeMember(workspaceId: string, targetUserId: string) {

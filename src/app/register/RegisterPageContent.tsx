@@ -4,7 +4,7 @@ import Link from 'next/link'
 import RegisterForm from './RegisterForm'
 import { useT } from '@/contexts/LanguageContext'
 
-export default function RegisterPageContent() {
+export default function RegisterPageContent({ inviteToken }: { inviteToken?: string }) {
   const { t } = useT()
 
   return (
@@ -60,7 +60,7 @@ export default function RegisterPageContent() {
             <h2 className="form-title">{t('register.title')}</h2>
             <p className="form-subtitle">{t('register.subtitle')}</p>
           </div>
-          <RegisterForm />
+          <RegisterForm inviteToken={inviteToken} />
           <p className="auth-switch-link">
             <Link href="/login">{t('auth.haveAccount')}</Link>
           </p>

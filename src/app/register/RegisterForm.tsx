@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { register } from '@/lib/actions/auth'
 import { useT } from '@/contexts/LanguageContext'
 
-export default function RegisterForm() {
+export default function RegisterForm({ inviteToken }: { inviteToken?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const { t } = useT()
@@ -21,6 +21,7 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="rf-form">
+      {inviteToken && <input type="hidden" name="inviteToken" value={inviteToken} />}
       {error && (
         <div className="rf-error">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

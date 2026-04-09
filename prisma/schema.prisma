@@ -30,6 +30,7 @@ model User {
   apiKeys          ApiKey[]
   messages         Message[]
   appMemberships   AppMember[]
+  sentInvites      WorkspaceInvite[] @relation("InvitedBy")
 }
 
 model Session {
@@ -55,6 +56,7 @@ model Workspace {
   apps        App[]
   apiKeys     ApiKey[]
   messages    Message[]
+  invites     WorkspaceInvite[]
 }
 
 model WorkspaceMember {
@@ -217,6 +219,23 @@ model Message {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+}
+
+model WorkspaceInvite {
+  id          String   @id @default(cuid())
+  workspaceId String
+  email       String?
+  token       String   @unique
+  role        String   @default("member")
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([workspaceId])
+  @@index([token])
 }
 
 model AppMember {
