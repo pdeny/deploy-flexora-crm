@@ -31,12 +31,12 @@
   --accent-amber:   #f59e0b;
   --accent-rose:    #f43f5e;
 
-  /* Dark neutrals – warm violet-tinted for depth */
-  --bg-base:    #322e3f;
-  --bg-surface: #3a3649;
-  --bg-elevated:#433f53;
-  --bg-overlay: #4c475d;
-  --bg-hover:   #554f67;
+  /* Dark neutrals – slightly blue-tinted for depth */
+  --bg-base:    #08080d;
+  --bg-surface: #0f0f18;
+  --bg-elevated:#17171f;
+  --bg-overlay: #1e1e29;
+  --bg-hover:   #252534;
 
   /* Borders */
   --border-subtle:  rgba(120,120,255,0.06);
@@ -167,6 +167,10 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding: 32px 40px;
+  background: #322e3f;
+}
+[data-theme="light"] .page-body {
+  background: transparent;
 }
 
 /* =====================================================
