@@ -32,9 +32,11 @@ type RecentItem = {
 
 type Member = {
   id: string
+  userId: string
   role: string
   userName: string
   userEmail: string
+  avatarUrl: string | null
 }
 
 type Props = {
@@ -44,6 +46,7 @@ type Props = {
   workspaceDescription: string | null
   apps: AppSummary[]
   members: Member[]
+  onlineUserIds: string[]
   recentItems: RecentItem[]
   doneTasks: number
   totalTasks: number
@@ -58,6 +61,7 @@ export default function WorkspaceContent({
   workspaceDescription,
   apps,
   members,
+  onlineUserIds,
   recentItems,
   doneTasks,
   totalTasks,
@@ -252,6 +256,47 @@ export default function WorkspaceContent({
             <CreateAppButton workspaceId={workspaceId} />
           </>}
         </div>
+      </div>
+
+      {/* Active members widget */}
+      <div className="ws-active-members">
+        <div className="ws-active-avatars">
+          {members.slice(0, 8).map((m, i) => {
+            const isOnline = onlineUserIds.includes(m.userId)
+            const initial = (m.userName || m.userEmail)[0].toUpperCase()
+            return (
+              <div
+                key={m.id}
+                className="ws-avatar-stack-item"
+                style={{ zIndex: members.length - i }}
+                title={`${m.userName || m.userEmail}${isOnline ? ` — ${t('ws.online')}` : ''}`}
+              >
+                {m.avatarUrl ? (
+                  <img src={m.avatarUrl} alt={m.userName || m.userEmail} className="ws-avatar-img" />
+                ) : (
+                  <div className="ws-avatar-fallback">{initial}</div>
+                )}
+                <span className={`ws-avatar-status ${isOnline ? 'ws-avatar-online' : 'ws-avatar-offline'}`} />
+              </div>
+            )
+          })}
+          {members.length > 8 && (
+            <div className="ws-avatar-stack-item ws-avatar-more" style={{ zIndex: 0 }}>
+              +{members.length - 8}
+            </div>
+          )}
+        </div>
+        <span className="ws-active-count">
+          {onlineUserIds.length} {t('ws.activeNow')}
+        </span>
+        {can['workspace:inviteMembers'] && (
+          <a href={`/dashboard/${workspaceId}/settings`} className="ws-invite-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            {t('ws.invite')}
+          </a>
+        )}
       </div>
 
       {/* CSV Import — collapsible inline section */}
@@ -564,6 +609,99 @@ export default function WorkspaceContent({
       </div>
 
       <style>{`
+        .ws-active-members {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 12px 0;
+          margin-bottom: 4px;
+          flex-wrap: wrap;
+        }
+        .ws-active-avatars {
+          display: flex;
+          align-items: center;
+        }
+        .ws-avatar-stack-item {
+          position: relative;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          margin-right: -10px;
+          border: 2.5px solid var(--bg-primary);
+          flex-shrink: 0;
+          cursor: default;
+        }
+        .ws-avatar-stack-item:last-child {
+          margin-right: 0;
+        }
+        .ws-avatar-img {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          display: block;
+        }
+        .ws-avatar-fallback {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--brand-500), var(--accent-violet));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 700;
+          color: #fff;
+        }
+        .ws-avatar-status {
+          position: absolute;
+          bottom: -1px;
+          right: -1px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          border: 2.5px solid var(--bg-primary);
+        }
+        .ws-avatar-online {
+          background: #22c55e;
+        }
+        .ws-avatar-offline {
+          background: var(--text-disabled);
+        }
+        .ws-avatar-more {
+          background: var(--bg-elevated);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-secondary);
+        }
+        .ws-active-count {
+          font-size: 13px;
+          color: var(--text-secondary);
+          font-weight: 500;
+          margin-left: 4px;
+        }
+        .ws-invite-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          text-decoration: none;
+          padding: 5px 12px;
+          border-radius: var(--radius-full);
+          border: 1px dashed var(--border-default);
+          transition: all var(--transition-fast);
+          white-space: nowrap;
+        }
+        .ws-invite-btn:hover {
+          color: var(--brand-500);
+          border-color: var(--brand-500);
+          background: var(--brand-500)0a;
+        }
         .csv-import-section {
           background: var(--bg-surface);
           border: 1px solid var(--brand-500)33;

@@ -27,7 +27,9 @@ export default async function WorkspacePage({
   try { wsPerms = await getWorkspacePermissions(user.id, workspaceId) } catch { redirect('/dashboard') }
   const can = toPermissionMap(wsPerms)
 
-  const [recentItems, taskStats] = await Promise.all([
+  const memberUserIds = workspace.members.map(m => m.userId)
+
+  const [recentItems, taskStats, activeSessions] = await Promise.all([
     prisma.item.findMany({
       where: { app: { workspaceId } },
       include: { app: true, creator: true },
@@ -39,7 +41,17 @@ export default async function WorkspacePage({
       where: { item: { app: { workspaceId } } },
       _count: true,
     }),
+    prisma.session.findMany({
+      where: {
+        userId: { in: memberUserIds },
+        expiresAt: { gt: new Date() },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
   ])
+
+  const onlineUserIds = activeSessions.map(s => s.userId)
 
   const totalTasks = taskStats.reduce((s, t) => s + t._count, 0)
   const doneTasks = taskStats.find(t => t.status === 'done')?._count ?? 0
@@ -61,10 +73,13 @@ export default async function WorkspacePage({
       }))}
       members={workspace.members.map(m => ({
         id: m.id,
+        userId: m.userId,
         role: m.role,
         userName: m.user.name ?? '',
         userEmail: m.user.email,
+        avatarUrl: m.user.avatarUrl,
       }))}
+      onlineUserIds={onlineUserIds}
       recentItems={recentItems.map(item => ({
         id: item.id,
         title: item.title,

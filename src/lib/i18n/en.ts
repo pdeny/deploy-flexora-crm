@@ -509,6 +509,9 @@ export const en: LangDict = {
   'ws.activity': 'Recent Activity',
   'ws.noActivity': 'No activity yet.',
   'ws.members': 'Members ({n})',
+  'ws.online': 'Online',
+  'ws.activeNow': 'active now',
+  'ws.invite': 'Invite',
 
   // Settings page
   'settings.breadcrumb': 'Settings',

@@ -507,6 +507,9 @@ export const it = {
   'ws.activity': 'Attività recente',
   'ws.noActivity': 'Nessuna attività.',
   'ws.members': 'Membri ({n})',
+  'ws.online': 'Online',
+  'ws.activeNow': 'attivi ora',
+  'ws.invite': 'Invita',
 
   // Settings page
   'settings.breadcrumb': 'Impostazioni',
