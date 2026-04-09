@@ -627,7 +627,7 @@ export default function WorkspaceContent({
           height: 38px;
           border-radius: 50%;
           margin-right: -10px;
-          border: 2.5px solid var(--bg-primary);
+          border: 2.5px solid var(--bg-base);
           flex-shrink: 0;
           cursor: default;
         }
@@ -660,7 +660,7 @@ export default function WorkspaceContent({
           width: 12px;
           height: 12px;
           border-radius: 50%;
-          border: 2.5px solid var(--bg-primary);
+          border: 2.5px solid var(--bg-base);
         }
         .ws-avatar-online {
           background: #22c55e;
